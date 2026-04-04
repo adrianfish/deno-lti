@@ -1,0 +1,21 @@
+{
+  "name": "@adrianfish/deno-lti",
+  "version": "0.1.0",
+  "exports": "./mod.ts",
+  "imports": {
+    "@hugoalh/http-header-link": "jsr:@hugoalh/http-header-link@1.0.3",
+    "hono": "jsr:@hono/hono@^4",
+    "hono/cookie": "jsr:@hono/hono@^4/cookie",
+    "hono/cors": "jsr:@hono/hono@^4/cors",
+    "hono/secure-headers": "jsr:@hono/hono@^4/secure-headers",
+    "jose": "jsr:@panva/jose@^6",
+    "@std/encoding/base64": "jsr:@std/encoding@^1/base64"
+  },
+  "tasks": {
+    "check": "deno check mod.ts",
+    "test": "deno test --allow-net --allow-env --allow-read --unstable-kv"
+  },
+  "fmt": {
+    "lineWidth": 128
+  }
+}
