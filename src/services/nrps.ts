@@ -49,7 +49,7 @@ export class NamesAndRoleService {
 
     return fetch(membershipsUrl, {
         headers: {
-          Authorization: `Bearer: ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           Accept: "application/vnd.ims.lti-nrps.v2.membershipcontainer+json",
         },
       })
@@ -69,7 +69,8 @@ export class NamesAndRoleService {
 
           return r.json();
         } else {
-          console.error(`Network error while getting users from ${url.href}: ${r.status}`);
+          console.error(`Network error while getting users from ${membershipsUrl}: ${r.status}`);
+          console.log(await r.json());
           return {};
         }
       });

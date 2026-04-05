@@ -61,7 +61,8 @@ export async function requestAccessToken(
   // Signed client assertion JWT
   const assertion = await new SignJWT({})
     .setProtectedHeader({ alg: "RS256", kid: platformKid })
-    .setIssuer(clientId)
+    //.setIssuer(clientId)
+    .setIssuer("https://adrian-dialang-lti.ngrok.app/lti")
     .setSubject(clientId)
     .setAudience(platformAccessTokenEndpoint)
     .setIssuedAt(now)
