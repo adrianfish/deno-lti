@@ -70,8 +70,10 @@ export async function handleRegisterPlatform(
     },
   };
 
-  console.log("DATA TO BE SENT");
-  console.log(data);
+  if (debug) {
+    console.log("DATA TO BE SENT");
+    console.log(data);
+  }
 
   const registrationEndpoint = openIdConfig["registration_endpoint"];
   const registrationToken = c.req.query("registration_token");
