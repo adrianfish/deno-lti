@@ -41,6 +41,7 @@ export async function getAccessToken(
  * Called once per platform per scope set; result is cached.
  */
 export async function requestAccessToken(
+  toolDomain: string,
   platformAccessTokenEndpoint: string,
   platformUrl: string,
   clientId: string,
@@ -61,8 +62,7 @@ export async function requestAccessToken(
   // Signed client assertion JWT
   const assertion = await new SignJWT({})
     .setProtectedHeader({ alg: "RS256", kid: platformKid })
-    //.setIssuer(clientId)
-    .setIssuer("https://adrian-dialang-lti.ngrok.app/lti")
+    .setIssuer(`https://${toolDomain}/lti`)
     .setSubject(clientId)
     .setAudience(platformAccessTokenEndpoint)
     .setIssuedAt(now)

@@ -20,17 +20,20 @@ export class NamesAndRoleService {
   }
 
   async loadUsers(
-    membershipsUrl?: string,
+    membershipsUrl?: string | unknown,
     accessToken?: string,
     platformUrl?: string,
     clientId?: string,
     contextId?: string,
     user?: string,
-  ): Promise<object> {
-    if (!accessToken && !membershipsUrl) {
+  ): Promise<object | null> {
+    if (!accessToken && !membershipsUrl && platformUrl && clientId) {
       const platform = await this.#ltiService.getPlatform(platformUrl, clientId);
 
+      if (!platform) return null;
+
       accessToken = await requestAccessToken(
+        this.#ltiService.toolDomain,
         platform.accesstokenEndpoint,
         platformUrl,
         clientId,
@@ -42,7 +45,7 @@ export class NamesAndRoleService {
 
       const contextToken = await this.#storage.getContextToken(`${contextId}${user}`);
 
-      membershipsUrl = contextToken.namesRoles?.context_memberships_url;
+      membershipsUrl = contextToken?.namesRoles?.context_memberships_url;
       if (!membershipsUrl) throw new Error("No context_memberships_url in context");
       membershipsUrl += "?limit=10";
     }

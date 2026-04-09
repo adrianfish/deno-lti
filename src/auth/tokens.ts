@@ -58,6 +58,7 @@ async function resolvePlatformKey(
 ): Promise<CryptoKey> {
 
   if (platform.jwksUri) {
+    console.log("PATH1");
     return createRemoteJWKSet(new URL(platform.jwksUri));
   }
 
@@ -68,6 +69,7 @@ async function resolvePlatformKey(
       throw new Error(`Platform ${platform.url} has JWK_SET but no keysetEndpoint`);
     }
     // createRemoteJWKSet is lazy; jose will fetch and cache it
+    console.log("PATH2");
     return createRemoteJWKSet(new URL(platform.authEndpoint));
   }
 
@@ -76,13 +78,16 @@ async function resolvePlatformKey(
   if (method === "JWK_KEY") {
     if (!key) throw new Error("JWK_KEY requires authConfig.key to be set");
     const jwk = JSON.parse(key);
+    console.log("PATH3");
     return importJWK(jwk, "RS256") as Promise<CryptoKey>;
   }
 
   if (method === "RSA_KEY") {
     if (!key) throw new Error("RSA_KEY requires authConfig.key to be set");
+    console.log("PATH4");
     return importSPKI(key, "RS256");
   }
+    console.log("PATH5");
 
   throw new Error(`Unknown authConfig.method: ${method}`);
 }

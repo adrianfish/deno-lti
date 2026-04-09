@@ -44,12 +44,13 @@ export class DenoLTI {
   /**
    * Initialize the tool.
    *
+   * @param {string} toolDomain The domain that this LTI tool will be hosted under.
    * @param {string} secret Passphrase used to sign LTIKs and encrypt stored keys.
    *                 Keep this secret and consistent across restarts.
    * @param {Deno.Kv} kv Pre-initialised DenoKv instance
    * @param {ToolOptions} options Optional configuration.
    */
-  async setup(secret: string, kv?: Deno.Kv, options: ToolOptions = {}): Promise<this> {
+  async setup(toolDomain: string, secret: string, kv?: Deno.Kv, options: ToolOptions = {}): Promise<this> {
     this.#secret = secret;
     this.#aesKey = await deriveAesKey(secret);
     this.#storage = await DenoKVStorage.open(kv);
@@ -59,6 +60,7 @@ export class DenoLTI {
     this.#ltiService = new LTIService(options);
     this.#ltiService.storage = this.#storage;
     this.#ltiService.aesKey = this.#aesKey;
+    this.#ltiService.toolDomain = toolDomain;
 
     this.nrps = new NamesAndRoleService(this.#storage, this.#aesKey, this.#ltiService);
 
@@ -74,7 +76,7 @@ export class DenoLTI {
 
   grade!: GradeService;
 
-  nrps!: NameAndRoleService;
+  nrps!: NamesAndRoleService;
 
   loadUsers(
     membershipsUrl?: string,

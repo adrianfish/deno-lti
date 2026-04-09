@@ -5,6 +5,7 @@ import type { Platform, ToolOptions } from "../types.ts";
 
 export class LTIService {
   #aesKey!: CryptoKey;
+  toolDomain!: string;
   #options!: ToolOptions;
   #storage!: Storage;
 
@@ -13,6 +14,7 @@ export class LTIService {
   }
 
   set aesKey(aesKey: CryptoKey) { this.#aesKey = aesKey; }
+  //set toolDomain(toolDomain: string) { this.toolDomain = toolDomain; }
   set storage(storage: Storage) { this.#storage = storage; }
 
   async registerPlatform(platform: Platform): Promise<Platform> {
@@ -34,6 +36,8 @@ export class LTIService {
     if (clientId) return await this.#storage.getPlatform(url, clientId);
     const platforms: Platform[] = await this.#storage.getPlatformsByUrl(url);
     if (platforms.length) return platforms[0];
+
+    console.warn(`No platform found for url ${url} and clientId ${clientId}`);
     return null;
   }
 

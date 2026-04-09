@@ -26,6 +26,7 @@ export async function createDeepLinkingForm(
 ): Promise<string> {
   const message = await createDeepLinkingMessage(token, items, storage, aesKey, toolUrl);
   const returnUrl = token.platformContext.deepLinkingSettings?.deep_link_return_url || "";
+  console.log(returnUrl);
 
   // Auto-submitting form
   return `<!DOCTYPE html>
@@ -53,6 +54,14 @@ export async function createDeepLinkingMessage(
 ): Promise<string> {
   const settings = token.platformContext.deepLinkingSettings;
 
+  let data = settings.data;
+  if (!data) {
+    const url = new URL(token.platformContext.deepLinkingSettings?.deep_link_return_url || "");
+    data = url.searchParams.get("data");
+  }
+
+  console.log(`DATA: ${data}`);
+
   const kid = `${token.iss}\$\$${token.clientId}`;
   const privateKey = await getPrivateKey(kid, storage, aesKey);
 
@@ -63,10 +72,11 @@ export async function createDeepLinkingMessage(
     "https://purl.imsglobal.org/spec/lti/claim/version": "1.3.0",
     "https://purl.imsglobal.org/spec/lti/claim/deployment_id": token.deploymentId,
     "https://purl.imsglobal.org/spec/lti-dl/claim/content_items": items,
-    "https://purl.imsglobal.org/spec/lti-dl/claim/data": settings?.data,
+    "https://purl.imsglobal.org/spec/lti-dl/claim/data": data,
   })
     .setProtectedHeader({ alg: "RS256", kid })
-    .setIssuer(toolUrl)
+    //.setIssuer(toolUrl)
+    .setIssuer(token.clientId)
     .setAudience(token.iss)
     .setSubject(token.user)
     .setIssuedAt(now)
