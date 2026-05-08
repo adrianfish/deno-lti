@@ -26,7 +26,6 @@ export async function createDeepLinkingForm(
 ): Promise<string> {
   const message = await createDeepLinkingMessage(token, items, storage, aesKey, toolUrl);
   const returnUrl = token.platformContext.deepLinkingSettings?.deep_link_return_url || "";
-  console.log(returnUrl);
 
   // Auto-submitting form
   return `<!DOCTYPE html>
@@ -59,8 +58,6 @@ export async function createDeepLinkingMessage(
     const url = new URL(token.platformContext.deepLinkingSettings?.deep_link_return_url || "");
     data = url.searchParams.get("data");
   }
-
-  console.log(`DATA: ${data}`);
 
   const kid = `${token.iss}\$\$${token.clientId}`;
   const privateKey = await getPrivateKey(kid, storage, aesKey);
