@@ -1,16 +1,4 @@
-/**
- * DenoLTI — the main entry point.
- *
- *   const lti = new DenoLTI
- *   await lti
- *     .onConnect((c, { token }) => c.json({ user: token.user }))
- *     .setup("https://www.myltitool.com", "my-secret", denoKv);
- *
- *   const app = new Hono()
- *   app.route("/lti", lti.handler())
- */
-
-import { Hono, type MiddlewareHandler } from "hono";
+import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { buildJwks } from "./auth/keys.ts";
@@ -23,10 +11,12 @@ import { NamesAndRoleService } from "./services/nrps.ts";
 import { LTIService } from "./services/lti-service.ts";
 import { createDeepLinkingForm, createDeepLinkingMessage } from "./services/deep-linking.ts";
 import { deriveAesKey } from "./crypto.ts";
+import type { MiddlewareHandler } from "hono";
 import type { Storage } from "./storage/storage.ts";
-import type { CookieOptions, ErrorHandler, LTIHandler, StoredContextToken, StoredIdToken, ToolOptions } from "./types.ts";
+import type { ErrorHandler, LTIHandler, ToolOptions } from "./types.ts";
 
 export class DenoLTI {
+
   #app = new Hono();
   #storage!: Storage;
   #ltiService!: LTIService;
@@ -44,16 +34,22 @@ export class DenoLTI {
   /**
    * Initialize the tool.
    *
+   * <pre><code>
+   *   const lti = new DenoLTI();
+   *   await lti.setup("myltitool.com", "some-secret", { ltiRoute: "/lti", debug: true });
+   * </code></pre>
+   *
    * @param {string} toolDomain The domain that this LTI tool will be hosted under.
    * @param {string} secret Passphrase used to sign LTIKs and encrypt stored keys.
    *                 Keep this secret and consistent across restarts.
-   * @param {Deno.Kv} kv Pre-initialised DenoKv instance
    * @param {ToolOptions} options Optional configuration.
+   *
+   * @returns A promise containing this DenoLTI instance
    */
-  async setup(toolDomain: string, secret: string, kv?: Deno.Kv, options: ToolOptions = {}): Promise<this> {
+  async setup(toolDomain: string, secret: string, options: ToolOptions = {}): Promise<this> {
     this.#secret = secret;
     this.#aesKey = await deriveAesKey(secret);
-    this.#storage = await DenoKVStorage.open(kv);
+    this.#storage = await DenoKVStorage.open();
     this.#options = options;
     this.grade = new GradeService(this.#storage, this.#aesKey);
 
@@ -92,12 +88,14 @@ export class DenoLTI {
   get DeepLinking() {
     return {
       createDeepLinkingForm: (
-        token: Parameters<typeof createDeepLinkingForm>[0],
+        data: Record<string, string>,
+        //token: Parameters<typeof createDeepLinkingForm>[0],
         items: Parameters<typeof createDeepLinkingForm>[1],
         toolUrl: string,
       ) =>
         createDeepLinkingForm(
-          token,
+          data,
+          //token,
           items,
           this.#storage,
           this.#aesKey,
@@ -153,14 +151,6 @@ export class DenoLTI {
     return this;
   }
 
-  getContextToken(key: string): Promise<StoredContextToken | null> {
-    return this.#storage.getContextToken(key);
-  }
-
-  getIdToken(key: string): Promise<StoredIdToken | null> {
-    return this.#storage.getIdToken(key);
-  }
-
   // ---------------------------------------------------------------------------
   // Hono app accessor — embed in a larger app
   // ---------------------------------------------------------------------------
@@ -170,9 +160,10 @@ export class DenoLTI {
    * Use this to mount deno-lti under a sub-path or alongside other routes:
    *
    *   const mainApp = new Hono()
-   *   mainApp.route("/lti", await lti.setup(key, denoKv).then(l => l.handler()))
+   *   mainApp.route("/lti", await lti.setup(domain, key).then(l => l.handler()))
    */
   handler(): Hono {
+
     this.#assertReady();
     return this.#app;
   }
@@ -181,7 +172,9 @@ export class DenoLTI {
    * Build all of our Hono lti routes
    */
   #buildRoutes(): void {
-    const ltiRoute = this.#options.ltiRoute ?? "/";
+
+    // ltiRoute defaults to /lti
+    const ltiRoute = this.#options.ltiRoute ?? "/lti";
 
     // Security middleware
     this.#app.use(
@@ -207,6 +200,7 @@ export class DenoLTI {
         }),
     );
 
+    // Dynamic registration
     this.#app.on(
       ["GET", "POST"],
       "/register",
@@ -221,7 +215,7 @@ export class DenoLTI {
     // -------------------------------------------------------------------------
     // Session middleware — covers all other routes
     // -------------------------------------------------------------------------
-    const sessionMiddleware = createSessionMiddleware({
+    const sessionMiddleware: MiddlewareHandler = createSessionMiddleware({
       lti: this,
       storage: this.#storage,
       secret: this.#secret,

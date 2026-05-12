@@ -2,7 +2,7 @@
 
 A zero-dependency [LTI 1.3](https://www.imsglobal.org/spec/lti/v1p3/) tool library for [Deno](https://deno.land/), built on [Hono](https://hono.dev/).
 
-Implements the full LTI 1.3 + OIDC launch flow, Assignment & Grade Services (AGS), Deep Linking, and Names & Roles Provisioning. Uses Deno KV for storage by default.
+Implements the full LTI 1.3 + OIDC launch flow, Assignment & Grade Services (AGS), Deep Linking, and Names & Roles Provisioning. Uses Deno KV for storage.
 
 ## Installation
 
@@ -64,7 +64,6 @@ Initializes the tool. Must be called before `handler()`.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `secret` | `string` | Passphrase for signing LTIKs and encrypting stored keys. Keep stable across restarts. |
-| `kv` | `Deno.Kv` *(optional)* | Pre-initialized Deno KV instance. Opens a default instance if omitted. |
 | `options` | `ToolOptions` *(optional)* | Configuration — see below. |
 
 **`ToolOptions`**
@@ -269,7 +268,7 @@ Retrieves all results for a line item. Follows pagination automatically.
 
 Available after `setup()`. Implements [LTI Deep Linking v1.2](https://www.imsglobal.org/spec/lti-dl/v1p0/).
 
-#### `lti.DeepLinking.createDeepLinkingForm(token, items, toolUrl): Promise<string>`
+#### `lti.DeepLinking.createDeepLinkingForm(data, items, toolUrl): Promise<string>`
 
 Returns an HTML string containing a form that auto-submits the signed Deep Linking response back to the platform. Render this directly as the response body.
 
@@ -286,32 +285,9 @@ Returns the raw signed JWT Deep Linking response message, for cases where you ne
 
 ---
 
-### `lti.getContextToken(key): Promise<StoredContextToken | null>`
-### `lti.getIdToken(key): Promise<StoredIdToken | null>`
-
-Direct storage access for context and identity tokens by their LTIK-derived key. Useful for background jobs or webhooks that receive the LTIK separately from a Hono context.
-
----
-
 ## Platform registration
 
-Platforms (LMS instances) must be registered before they can launch your tool. You can do this via the dynamic registration endpoint or manually via the REST-style API.
-
-### Dynamic registration
-
 Direct the LMS to `GET /register?openid_configuration=<url>`. The handler fetches the platform's OpenID configuration, completes OAuth2 dynamic client registration, and stores the platform automatically.
-
-### Manual registration
-
-Call `lti.handler()` to get the underlying Hono app. Platform management APIs are internal; for programmatic registration you can instantiate and call `LTIService` directly by importing from `src/services/lti-service.ts`.
-
----
-
-## Custom storage
-
-The default storage backend uses Deno KV. To use a different backend (PostgreSQL, Redis, etc.), implement the `Storage` interface from `src/storage/storage.ts` and pass a pre-initialized `Deno.Kv`-backed or custom instance.
-
-The interface covers: platform registry, RSA keypairs (AES-256-CBC encrypted at rest), ID tokens, context tokens, OIDC state, nonces, and OAuth2 access token cache.
 
 ---
 
@@ -342,15 +318,3 @@ import type {
 | Deep Linking 1.2 | https://www.imsglobal.org/spec/lti-dl/v1p0/ |
 | Names and Role Provisioning Services 2.0 | https://www.imsglobal.org/spec/lti-nrps/v2p0/ |
 | LTI 1.3 Implementation Guide | https://www.imsglobal.org/spec/lti/v1p3/impl/ |
-
----
-
-## Development
-
-```sh
-# Type-check
-deno task check
-
-# Run tests
-deno task test
-```

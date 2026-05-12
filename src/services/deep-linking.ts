@@ -18,12 +18,19 @@ import type { ContentItem, LTIToken } from "../types.ts";
  * @param toolUrl - The tool's own URL (used as iss in the response JWT)
  */
 export async function createDeepLinkingForm(
-  token: LTIToken,
+  //token: LTIToken,
+  data: Record<string, string>,
   items: ContentItem[],
   storage: Storage,
   aesKey: CryptoKey,
   toolUrl: string,
 ): Promise<string> {
+
+  const token: StoredIdToken | null = await storage.getIdToken(`${data.platformCode}${data.userId}`);
+  const contextToken: StoredContextToken | null = await storage.getContextToken(`${data.contextId}${data.userId}`);
+
+  token.platformContext = { deepLinkingSettings: contextToken?.deepLinkingSettings };
+
   const message = await createDeepLinkingMessage(token, items, storage, aesKey, toolUrl);
   const returnUrl = token.platformContext.deepLinkingSettings?.deep_link_return_url || "";
 

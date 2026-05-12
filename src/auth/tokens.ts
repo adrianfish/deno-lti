@@ -2,7 +2,8 @@
  * LTI token validation using jose.
  */
 
-import { createRemoteJWKSet, importJWK, importSPKI, type JWTPayload, jwtVerify, SignJWT } from "jose";
+import { createRemoteJWKSet, importJWK, importSPKI, jwtVerify, SignJWT } from "jose";
+import type { JWTPayload } from "jose";
 import type { Platform, StoredContextToken, StoredIdToken } from "../types.ts";
 import type { Storage } from "../storage/storage.ts";
 
@@ -44,13 +45,7 @@ export async function verifyLtik(
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch the JWKS or static key for a platform and return a jose KeyLike
- * suitable for jwtVerify.
- *
- * Three modes
- *   JWK_SET  — live JWKS endpoint fetched by jose (cached + auto-refreshed)
- *   JWK_KEY  — static JWK object supplied in authConfig.key
- *   RSA_KEY  — static PEM supplied in authConfig.key
+ * Fetch the JWKS for a platform and return a jose KeyLike suitable for jwtVerify.
  */
 async function resolvePlatformKey(
   platform: Platform,
@@ -58,38 +53,10 @@ async function resolvePlatformKey(
 ): Promise<CryptoKey> {
 
   if (platform.jwksUri) {
-    console.log("PATH1");
     return createRemoteJWKSet(new URL(platform.jwksUri));
   }
 
-  const method = platform.method;
-
-  if (method === "JWK_SET") {
-    if (!platform.authEndpoint) {
-      throw new Error(`Platform ${platform.url} has JWK_SET but no keysetEndpoint`);
-    }
-    // createRemoteJWKSet is lazy; jose will fetch and cache it
-    console.log("PATH2");
-    return createRemoteJWKSet(new URL(platform.authEndpoint));
-  }
-
-  const key = platform.key;
-
-  if (method === "JWK_KEY") {
-    if (!key) throw new Error("JWK_KEY requires authConfig.key to be set");
-    const jwk = JSON.parse(key);
-    console.log("PATH3");
-    return importJWK(jwk, "RS256") as Promise<CryptoKey>;
-  }
-
-  if (method === "RSA_KEY") {
-    if (!key) throw new Error("RSA_KEY requires authConfig.key to be set");
-    console.log("PATH4");
-    return importSPKI(key, "RS256");
-  }
-    console.log("PATH5");
-
-  throw new Error(`Unknown authConfig.method: ${method}`);
+  throw new Error("No JSON Web Key Set uri supplied (jwksUri)");
 }
 
 export interface ValidationResult {

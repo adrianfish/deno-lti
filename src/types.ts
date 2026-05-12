@@ -137,9 +137,9 @@ export interface CookieOptions {
 export interface ToolOptions {
   /** If true, skips session cookie validation. Never use in production. */
   devMode?: boolean;
-  /** If true, print some debug stuff */
+  /** If true, print lots of debug stuff */
   debug?: boolean;
-  /** Custom route for the main LTI launch. Defaults to "/". */
+  /** Custom route for the main LTI launch. Defaults to "/lti". */
   ltiRoute?: string;
   /** Cookie options applied to all set-cookie responses */
   cookies?: CookieOptions;
