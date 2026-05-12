@@ -4,7 +4,7 @@
  *   const lti = new DenoLTI
  *   await lti
  *     .onConnect((c, { token }) => c.json({ user: token.user }))
- *     .setup("my-secret", denoKv);
+ *     .setup("https://www.myltitool.com", "my-secret", denoKv);
  *
  *   const app = new Hono()
  *   app.route("/lti", lti.handler())

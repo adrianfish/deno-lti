@@ -6,9 +6,11 @@ Implements the full LTI 1.3 + OIDC launch flow, Assignment & Grade Services (AGS
 
 ## Installation
 
-```ts
-import { DenoLTI } from "jsr:@adrianfish/deno-lti";
-```
+*This hasn't been added to JSR yet so you currently need to clone the source code and work with that.*
+
+Install from JSR:
+
+deno add @adrianfish/deno-lti
 
 ## Quick start
 
@@ -22,11 +24,12 @@ await lti
   .onConnect((c, { token }) => {
     return c.html(`<h1>Hello, ${token.userInfo.name}!</h1>`);
   })
-  .setup("my-persistent-secret-key");
+  .setup("my-lti-tool-domain.com", "SECRET");
 
-// Mount under a sub-path alongside other routes
+// If you're using Hono for your app logic, you can mount under a sub-path alongside other routes
 const app = new Hono();
 app.route("/lti", lti.handler());
+app.get("/some-app-route", someAppRouteHandler);
 
 Deno.serve(app.fetch);
 ```
@@ -54,7 +57,7 @@ Creates a new LTI tool instance. Call the fluent callback-registration methods b
 
 ---
 
-### `lti.setup(secret, kv?, options?): Promise<this>`
+### `lti.setup(domain, secret, kv?, options?): Promise<this>`
 
 Initializes the tool. Must be called before `handler()`.
 
@@ -72,7 +75,6 @@ Initializes the tool. Must be called before `handler()`.
 | `cookies` | `CookieOptions` | — | Cookie settings: `secure`, `sameSite` (`"Strict"` \| `"Lax"` \| `"None"`), `domain`. |
 | `devMode` | `boolean` | `false` | Skips session cookie validation. **Never use in production.** |
 | `debug` | `boolean` | `false` | Enables verbose debug logging. |
-| `serverless` | `boolean` | `false` | Reserved for serverless deployments where the tool manages its own `Deno.serve()`. |
 
 ---
 

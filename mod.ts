@@ -5,15 +5,20 @@
  *
  * Quick start:
  *
- *   import { DenoLTI } from "./mod.ts"
+ * <pre><code>
  *
- *   const lti = new DenoLTI()
+ *   import { DenoLTI } from "jsr:@adrianfish/deno-lti";
+ *   import { Hono } from "jsr:@hono/hono";
+ *
+ *   const lti = new DenoLTI();
  *
  *   await lti
  *     .onConnect((c, { token }) => {
- *       return c.html(`<h1>Hello, ${token.userInfo.name}!</h1>`)
+ *       return c.html(`<h1>Hello, ${token.userInfo.name}!</h1>`);
  *     })
- *     .setup("my-secret-key", denoKv)
+ *     .setup("my-lti-tool-domain.com", "my-persistent-secret-key");
+ *
+ * </code></pre>
  */
 
 export { DenoLTI } from "./src/deno-lti.ts";

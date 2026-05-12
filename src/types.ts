@@ -143,8 +143,6 @@ export interface ToolOptions {
   ltiRoute?: string;
   /** Cookie options applied to all set-cookie responses */
   cookies?: CookieOptions;
-  /** If true, tool manages its own Deno.serve(). */
-  serverless?: boolean;
 }
 
 export interface ContentItem {
