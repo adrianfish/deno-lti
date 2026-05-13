@@ -41,9 +41,8 @@ export async function handleRegisterPlatform(
     "client_name": "Dialang",
     "logo_uri": "http://bogus.org/dialang.png",
     "jwks_uri": `https://${service.toolDomain}/lti/keys`,
-    //"token_endpoint_auth_method": "JWK_SET",
     "token_endpoint_auth_method": "private_key_jwt",
-    "scope": "https://purl.imsglobal.org/spec/lti-reg/scope/registration.readonly openid https://purl.imsglobal.org/spec/lti-reg/scope/registration https://purl.imsglobal.org/spec/lti-ags/scope/score https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
+    "scope": "https://purl.imsglobal.org/spec/lti-reg/scope/registration.readonly openid https://purl.imsglobal.org/spec/lti-reg/scope/registration https://purl.imsglobal.org/spec/lti-ags/scope/lineitem https://purl.imsglobal.org/spec/lti-ags/scope/score https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
     "https://purl.imsglobal.org/spec/lti-tool-configuration": {
       "domain": service.toolDomain,
       "description": "Test your language skills.",

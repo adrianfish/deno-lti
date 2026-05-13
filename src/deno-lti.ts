@@ -89,13 +89,11 @@ export class DenoLTI {
     return {
       createDeepLinkingForm: (
         data: Record<string, string>,
-        //token: Parameters<typeof createDeepLinkingForm>[0],
         items: Parameters<typeof createDeepLinkingForm>[1],
         toolUrl: string,
       ) =>
         createDeepLinkingForm(
           data,
-          //token,
           items,
           this.#storage,
           this.#aesKey,

@@ -3,9 +3,11 @@
  */
 
 import { createRemoteJWKSet, importJWK, importSPKI, jwtVerify, SignJWT } from "jose";
+
 import type { JWTPayload } from "jose";
 import type { Platform, StoredContextToken, StoredIdToken } from "../types.ts";
 import type { Storage } from "../storage/storage.ts";
+import type { LtikPayload } from "../types.ts";
 
 const NONCE_TTL_MS = 10_000; // 10 seconds
 const TOKEN_MAX_AGE_SEC = 10; // LTI spec: token freshness
@@ -20,7 +22,7 @@ function ltikSecret(secret: string): Uint8Array {
 }
 
 export async function signLtik(
-  payload: Record<string, unknown>,
+  payload: LtikPayload,
   secret: string,
 ): Promise<string> {
   return new SignJWT(payload)
@@ -31,10 +33,10 @@ export async function signLtik(
 export async function verifyLtik(
   ltik: string,
   secret: string,
-): Promise<JWTPayload | null> {
+): Promise<LtikPayload | null> {
   try {
     const { payload } = await jwtVerify(ltik, ltikSecret(secret));
-    return payload;
+    return payload as unknown as LtikPayload;
   } catch {
     return null;
   }

@@ -177,11 +177,9 @@ Both `onConnect` and `onDeepLinking` receive `(c: Context, lti: LTIContext)`.
 
 ### Session token transport
 
-Subsequent requests (after the initial launch redirect) must carry the LTIK. The middleware checks these locations in order:
+Subsequent requests (after the initial launch redirect) must carry the LTIK session token as a query parameter.
 
-1. `Authorization: LTIK-AUTH-V1 Token=<ltik>` header
-2. `Authorization: Bearer <ltik>` header
-3. `?ltik=<ltik>` query parameter
+`?ltik=<ltik>` query parameter
 
 ---
 

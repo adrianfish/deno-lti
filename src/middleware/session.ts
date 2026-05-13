@@ -9,15 +9,17 @@
  *    from storage, attach to context variables
  */
 
-import type { Context, MiddlewareHandler } from "hono";
 import { getCookie, getSignedCookie, setCookie, setSignedCookie } from "hono/cookie";
 import { DenoLTI } from "../deno-lti.ts";
 import { validateToken } from "../auth/tokens.ts";
 import { signLtik, verifyLtik } from "../auth/tokens.ts";
 import { randomHex } from "../auth/keys.ts";
 import { LTIService } from "../services/lti-service.ts";
+
 import type { Storage } from "../storage/storage.ts";
 import type { CookieOptions, ErrorHandler, LTIHandler, LtikPayload, Platform } from "../types.ts";
+import type { Context, MiddlewareHandler } from "hono";
+import type { ValidationResult } from "../auth/tokens.ts";
 
 const IDTOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const CONTEXT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -43,24 +45,8 @@ interface SessionMiddlewareOptions {
 // LTIK extraction
 // ---------------------------------------------------------------------------
 
-function extractLtik(c: Context): string | null {
-  // 1. LTIK-AUTH-V1 header: Authorization: LTIK-AUTH-V1 Token=<ltik>[,Additional=<extra>]
-  const authHeader = c.req.header("authorization") ?? "";
-  if (authHeader.startsWith("LTIK-AUTH-V1")) {
-    const match = authHeader.match(/Token=([^,\s]+)/);
-    if (match) return match[1];
-  }
-
-  // 2. Bearer token
-  if (authHeader.startsWith("Bearer ")) {
-    return authHeader.slice(7);
-  }
-
-  // 3. Query parameter
-  const queryLtik = c.req.query("ltik");
-  if (queryLtik) return queryLtik;
-
-  return null;
+function extractLtik(c: Context): string | undefined {
+  return c.req.query("ltik");
 }
 
 // ---------------------------------------------------------------------------
@@ -110,17 +96,13 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
     // -----------------------------------------------------------------
     // 2. Subsequent request — must carry LTIK
     // -----------------------------------------------------------------
-    const ltik = extractLtik(c);
+    const ltik: string | null = extractLtik(c);
     if (!ltik) {
       return onInvalidToken(c);
     }
 
-    const ltikPayload = await verifyLtik(ltik, secret);
-    if (!ltikPayload) {
-      return onInvalidToken(c);
-    }
-
-    const payload = ltikPayload as unknown as LtikPayload;
+    const payload: LtikPayload = await verifyLtik(ltik, secret);
+    if (!payload) return onInvalidToken(c);
     if (debug) console.debug(`Launch redirect LTIK PAYLOAD: ${JSON.stringify(payload)}`);
 
     /*
@@ -136,12 +118,12 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
     }
     */
 
-    // Load tokens from storage
-    const tokenKey = `${payload.platformCode}${payload.user}`;
-    const contextKey = `${payload.contextId}${payload.user}`;
+    // We can now use the ltik contents to load the launch tokens from storage
+    const idTokenKey = `${payload.platformCode}${payload.user}`;
+    const contextTokenKey = `${payload.contextId}${payload.user}`;
     const [idToken, contextToken] = await Promise.all([
-      storage.getIdToken(tokenKey),
-      storage.getContextToken(contextKey),
+      storage.getIdToken(idTokenKey),
+      storage.getContextToken(contextTokenKey),
     ]);
 
     if (!idToken || !contextToken) {
@@ -211,11 +193,11 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       if (!platform.active) return onInactivePlatform(c);
 
       // Validate the id_token
-      let validationResult: Awaited<ReturnType<typeof validateToken>>;
+      let validationResult: Awaited<ValidationResult>;
       try {
         validationResult = await validateToken(idTokenJwt, platform, storage, debug);
-      } catch (_err) {
-        if (debug) console.debug(_err);
+      } catch (error) {
+        if (debug) console.debug(error);
         return onInvalidToken(c);
       }
 
@@ -227,15 +209,17 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       const pCode = "lti" + btoa(`${idToken.iss}${idToken.clientId}${idToken.deploymentId}`);
 
       // Persist tokens
-      const tokenKey = `${pCode}${idToken.user}`;
-      const contextKey = `${contextToken.contextId}${idToken.user}`;
+      const idTokenKey = `${pCode}${idToken.user}`;
+      const contextTokenKey = `${contextToken.contextId}${idToken.user}`;
       await Promise.all([
-        storage.saveIdToken(tokenKey, idToken, IDTOKEN_TTL_MS),
-        storage.saveContextToken(contextKey, contextToken, CONTEXT_TTL_MS),
+        storage.saveIdToken(idTokenKey, idToken, IDTOKEN_TTL_MS),
+        storage.saveContextToken(contextTokenKey, contextToken, CONTEXT_TTL_MS),
       ]);
 
-      // Mint LTIK
-      const ltikPayloadData: LtikPayload = {
+      // Create a token like object to circumvent the restrictions on cross origin cookies in modern
+      // browsers. This token holds the necessary data to continue with the launch request after
+      // OIDC auth. We call this the LTIK (LTI Key) and the pattern was lifted from ltijs.
+      const ltikPayload: LtikPayload = {
         platformUrl: idToken.iss,
         clientId: idToken.clientId,
         deploymentId: idToken.deploymentId,
@@ -244,7 +228,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
         user: idToken.user,
         s: randomHex(8),
       };
-      const ltik = await signLtik(ltikPayloadData as unknown as Record<string, unknown>, secret);
+      const ltik = await signLtik(ltikPayload, secret);
 
       /*
       // Set signed session cookie
@@ -264,7 +248,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       redirectUrl.searchParams.set("ltik", ltik);
 
       if (debug) console.debug("Redirecting to target with ltik ...");
-      return c.redirect(redirectUrl.toString(), 302);
+      return c.redirect(redirectUrl.toString());
     }
   };
 }
