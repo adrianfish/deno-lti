@@ -21,6 +21,9 @@ export class DenoLTI {
   #storage!: Storage;
   #ltiService!: LTIService;
   #secret!: string;
+  #clientName!: string;
+  #logoUri!: string;
+  #description!: string;
   #aesKey!: CryptoKey;
   #options!: ToolOptions;
   #connectCallback: LTIHandler = (c) => c.text("No onConnect handler registered", 500);
@@ -36,18 +39,35 @@ export class DenoLTI {
    *
    * <pre><code>
    *   const lti = new DenoLTI();
-   *   await lti.setup("myltitool.com", "some-secret", { ltiRoute: "/lti", debug: true });
+   *   await lti.setup("myltitool.com", "some-secret", "Tool Name", "A Great Tool", "https://logos.com/logo.png", { ltiRoute: "/lti", debug: true });
    * </code></pre>
    *
    * @param {string} toolDomain The domain that this LTI tool will be hosted under.
    * @param {string} secret Passphrase used to sign LTIKs and encrypt stored keys.
    *                 Keep this secret and consistent across restarts.
+   * @param {string} clientName The name of your LTI tool. This will be supplied during the dynamic
+   *                 registration and displayed in the Platform's UI
+   * @param {string} description The description of your LTI tool. This will be supplied during the
+   *                 dynamic registration and displayed in the Platform's UI
+   * @param {string} logoUri The uri of the logo to use with your tool. This will be supplied during
+   *                 the dynamic registration and displayed in the Platform's UI
    * @param {ToolOptions} options Optional configuration.
    *
    * @returns A promise containing this DenoLTI instance
    */
-  async setup(toolDomain: string, secret: string, options: ToolOptions = {}): Promise<this> {
+  async setup(
+    toolDomain: string,
+    secret: string,
+    clientName: string,
+    description: string,
+    logoUri: string,
+    options: ToolOptions = {}
+  ): Promise<this> {
+
     this.#secret = secret;
+    this.#clientName = clientName;
+    this.#description = description;
+    this.#logoUri = logoUri;
     this.#aesKey = await deriveAesKey(secret);
     this.#storage = await DenoKVStorage.open();
     this.#options = options;
@@ -202,7 +222,7 @@ export class DenoLTI {
     this.#app.on(
       ["GET", "POST"],
       "/register",
-      (c) => handleRegisterPlatform(c, this.#storage, this.#ltiService, this.#options.debug),
+      (c) => handleRegisterPlatform(c, this.#storage, this.#ltiService, this.#clientName, this.#description, this.#logoUri, this.#options),
     );
 
     // -------------------------------------------------------------------------

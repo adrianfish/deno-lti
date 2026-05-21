@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import type { Platform } from "../types.ts";
+import type { Platform, ToolOptions } from "../types.ts";
 import type { Storage } from "../storage/storage.ts";
 import type { LTIService } from "../services/lti-service.ts";
 
@@ -7,7 +7,10 @@ export async function handleRegisterPlatform(
   c: Context,
   storage: Storage,
   service: LTIService,
-  debug: boolean = false,
+  clientName: string,
+  description: string,
+  logoUri: string,
+  options: ToolOptions,
 ): Promise<Response> {
   const openIdUrl: string = c.req.query("openid_configuration") || "";
 
@@ -25,12 +28,15 @@ export async function handleRegisterPlatform(
     })
     .catch((e) => console.error(e));
 
-  if (debug) {
+  if (options.debug) {
     console.debug("");
     console.debug(" ==== OPENID_CONFIG ====");
     console.debug(openIdConfig);
     console.debug("");
   }
+
+  console.log(clientName);
+  console.log(description);
 
   const data = {
     "application_type": "web",
@@ -38,14 +44,14 @@ export async function handleRegisterPlatform(
     "grant_types": ["implicit", "client_credentials"],
     "initiate_login_uri": `https://${service.toolDomain}/lti/login`,
     "redirect_uris": [`https://${service.toolDomain}/lti`],
-    "client_name": "Dialang",
-    "logo_uri": "http://bogus.org/dialang.png",
+    "client_name": clientName,
+    "logo_uri": logoUri,
     "jwks_uri": `https://${service.toolDomain}/lti/keys`,
     "token_endpoint_auth_method": "private_key_jwt",
     "scope": "https://purl.imsglobal.org/spec/lti-reg/scope/registration.readonly openid https://purl.imsglobal.org/spec/lti-reg/scope/registration https://purl.imsglobal.org/spec/lti-ags/scope/lineitem https://purl.imsglobal.org/spec/lti-ags/scope/score https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
     "https://purl.imsglobal.org/spec/lti-tool-configuration": {
       "domain": service.toolDomain,
-      "description": "Test your language skills.",
+      "description": description,
       "target_link_uri": `https://${service.toolDomain}/lti`,
       "custom_parameters": {
         "context_history": "$Context.id.history",
@@ -69,14 +75,14 @@ export async function handleRegisterPlatform(
     },
   };
 
-  if (debug) {
+  if (options.debug) {
     console.log("DATA TO BE SENT");
     console.log(data);
   }
 
   const registrationEndpoint = openIdConfig["registration_endpoint"];
   const registrationToken = c.req.query("registration_token");
-  if (debug) console.debug(`Posting tool registration to ${registrationEndpoint}`);
+  if (options.debug) console.debug(`Posting tool registration to ${registrationEndpoint}`);
   const platform = await fetch(registrationEndpoint, {
     headers: {
       "Content-Type": "application/json",
@@ -92,7 +98,7 @@ export async function handleRegisterPlatform(
       throw new Error(`Network error while registering at endpoint ${registrationEndpoint}. Status: ${r.status}`);
     })
     .then((d) => {
-      if (debug) {
+      if (options.debug) {
         console.debug("");
         console.debug(" ==== CLIENT_REGISTRATION_RESPONSE ====");
         console.debug(d);
@@ -112,7 +118,7 @@ export async function handleRegisterPlatform(
     })
     .catch((e) => console.error(e.message));
 
-  if (debug) {
+  if (options.debug) {
     console.debug("");
     console.debug(" ==== PLATFORM ====");
     console.debug(platform);
