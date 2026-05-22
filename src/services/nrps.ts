@@ -59,12 +59,10 @@ export class NamesAndRoleService {
       .then(async r => {
         if (r.ok) {
           const headers: HTTPHeaderLink = HTTPHeaderLink.parse(r.headers);
-          const prev: HTTPHeaderLinkEntry[] = headers.getByRel("prev");
           const next: HTTPHeaderLinkEntry[] = headers.getByRel("next");
 
-          if (prev.length || next.length) {
+          if (next.length) {
             const users = await r.json();
-            users.prev = prev.length ? prev[0][0] : undefined;
             users.next = next.length ? next[0][0] : undefined;
             users.accessToken = accessToken;
             return users;
