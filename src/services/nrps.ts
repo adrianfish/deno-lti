@@ -19,6 +19,30 @@ export class NamesAndRoleService {
     this.#ltiService = ltiService;
   }
 
+  /**
+   * Load some users from the nrps endpoint. This can be called in two ways. The first way - with
+   * the membershipsUrl and accessToken set to null and the rest of the params set - is usually the
+   * way the first page of results is requested. An NRPS implementation may well supply a url and
+   * access token to get the next page, alongside the member objects. That url can be used with the
+   * token in further calls to loadUsers and in that case only membershipsUrl and accessToken will
+   * be supplied.
+   *
+   * @param {string} membershipsUrl The url of the results page to retrieve. This is returned by the
+   *                 Platform in a JSON page of member results and then supplied in further calls.
+   * @param {string} accessToken An access tokem for retrieving the page of results indicated by
+   *                 membershipsUrl. This is returned by the Platform in a JSON page of member
+   *                 results and then supplied in further calls.
+   * @param {string} platformUrl Used to identify a registered platform and allow us to get the
+   *                 context_memberships_url.
+   * @param {string} clientId Used to identify a registered platform and allow us to get the
+   *                 context_memberships_url.
+   * @param {string} contextId Used to identify a registered platform and allow us to get the
+   *                 context_memberships_url.
+   * @param {string} user Used to identify a registered platform and allow us to get the
+   *                 context_memberships_url.
+   *
+   * @return {object} A js object with the members and possibly the url for the next page of members
+   */
   async loadUsers(
     membershipsUrl?: string | unknown,
     accessToken?: string,
