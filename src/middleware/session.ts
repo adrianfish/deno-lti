@@ -119,8 +119,8 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
     */
 
     // We can now use the ltik contents to load the launch tokens from storage
-    const idTokenKey = `${payload.platformCode}${payload.user}`;
-    const contextTokenKey = `${payload.contextId}${payload.user}`;
+    const idTokenKey = `${payload.platformCode}${payload.userId}`;
+    const contextTokenKey = `${payload.contextId}${payload.userId}`;
     const [idToken, contextToken] = await Promise.all([
       storage.getIdToken(idTokenKey),
       storage.getContextToken(contextTokenKey),
@@ -138,7 +138,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
     c.set("platformUrl", payload.platformUrl);
     c.set("clientId", payload.clientId);
     c.set("contextId", payload.contextId);
-    c.set("user", payload.user);
+    c.set("userId", payload.userId);
     c.set("role", payload.role);
 
     // Route to the right callback
@@ -204,14 +204,19 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
 
       const { idToken, contextToken } = validationResult;
 
+      // Trim off the lti domain and user part of the user. We only want to provide the actual user
+      // id sent by the platform.
+      const userIdIndex = idToken.user.lastIndexOf("/");
+      const userId = idToken.user.substring(userIdIndex + 1);
+
       // ---------------------------------------------------------------------------
       // Platform code — stable identifier for the platform session cookie
       // ---------------------------------------------------------------------------
       const pCode = "lti" + btoa(`${idToken.iss}${idToken.clientId}${idToken.deploymentId}`);
 
       // Persist tokens
-      const idTokenKey = `${pCode}${idToken.user}`;
-      const contextTokenKey = `${contextToken.contextId}${idToken.user}`;
+      const idTokenKey = `${pCode}${userId}`;
+      const contextTokenKey = `${contextToken.contextId}${userId}`;
       await Promise.all([
         storage.saveIdToken(idTokenKey, idToken, IDTOKEN_TTL_MS),
         storage.saveContextToken(contextTokenKey, contextToken, CONTEXT_TTL_MS),
@@ -228,7 +233,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
         platformCode: pCode,
         contextId: contextToken.contextId,
         s: randomHex(8),
-        user: idToken.user,
+        userId: userId,
       };
 
       if (contextToken.roles.length) {
