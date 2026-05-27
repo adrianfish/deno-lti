@@ -139,6 +139,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
     c.set("clientId", payload.clientId);
     c.set("contextId", payload.contextId);
     c.set("user", payload.user);
+    c.set("role", payload.role);
 
     // Route to the right callback
     const ltiContext = {
@@ -216,6 +217,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
         storage.saveContextToken(contextTokenKey, contextToken, CONTEXT_TTL_MS),
       ]);
 
+
       // Create a token like object to circumvent the restrictions on cross origin cookies in modern
       // browsers. This token holds the necessary data to continue with the launch request after
       // OIDC auth. We call this the LTIK (LTI Key) and the pattern was lifted from ltijs.
@@ -225,9 +227,15 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
         deploymentId: idToken.deploymentId,
         platformCode: pCode,
         contextId: contextToken.contextId,
-        user: idToken.user,
         s: randomHex(8),
+        user: idToken.user,
       };
+
+      if (contextToken.roles.length) {
+        const hashIndex = contextToken.roles[0].indexOf("#");
+        ltikPayload.role = contextToken.roles[0].substring(hashIndex + 1);
+      }
+
       const ltik = await signLtik(ltikPayload, secret);
 
       /*
