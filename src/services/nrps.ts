@@ -95,7 +95,7 @@ export class NamesAndRoleService {
           return r.json();
         } else {
           console.error(`Network error while getting users from ${membershipsUrl}: ${r.status}`);
-          console.log(await r.json());
+          console.error(await r.json());
           return {};
         }
       });

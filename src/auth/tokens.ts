@@ -142,6 +142,7 @@ export async function validateToken(
   const deepLinkingSettings = payload["https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings"] as
     | Record<string, unknown>
     | undefined;
+  const toolPlatform = (payload["https://purl.imsglobal.org/spec/lti/claim/tool_platform"] ?? {}) as Record<string, string>;
   const launchPresentation = (payload["https://purl.imsglobal.org/spec/lti/claim/launch_presentation"] ?? {}) as Record<
     string,
     unknown
@@ -178,10 +179,13 @@ export async function validateToken(
     messageType: messageType as StoredContextToken["messageType"],
     version,
     deepLinkingSettings,
+    toolPlatform,
     lis,
     endpoint,
     namesRoles,
   };
+
+  console.log(contextToken);
 
   if (contextToken.messageType === "LtiDeepLinkingRequest") {
     if (!contextToken.deepLinkingSettings) throw new Error("No deep_linking_settings supplied");

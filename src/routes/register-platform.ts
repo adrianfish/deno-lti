@@ -35,9 +35,6 @@ export async function handleRegisterPlatform(
     console.debug("");
   }
 
-  console.log(clientName);
-  console.log(description);
-
   const data = {
     "application_type": "web",
     "response_types": ["id_token"],
