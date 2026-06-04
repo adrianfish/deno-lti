@@ -73,8 +73,8 @@ export async function handleRegisterPlatform(
   };
 
   if (options.debug) {
-    console.log("DATA TO BE SENT");
-    console.log(data);
+    console.debug("DATA TO BE SENT");
+    console.debug(data);
   }
 
   const registrationEndpoint = openIdConfig["registration_endpoint"];

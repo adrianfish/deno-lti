@@ -8,6 +8,7 @@ import { handleRegisterPlatform } from "./routes/register-platform.ts";
 import { DenoKVStorage } from "./storage/denokv-storage.ts";
 import { GradeService } from "./services/grade.ts";
 import { NamesAndRoleService } from "./services/nrps.ts";
+import { GroupsService } from "./services/groups.ts";
 import { LTIService } from "./services/lti-service.ts";
 import { createDeepLinkingForm, createDeepLinkingMessage } from "./services/deep-linking.ts";
 import { deriveAesKey } from "./crypto.ts";
@@ -79,6 +80,7 @@ export class DenoLTI {
     this.#ltiService.toolDomain = toolDomain;
 
     this.nrps = new NamesAndRoleService(this.#storage, this.#aesKey, this.#ltiService);
+    this.groups = new GroupsService(this.#storage, this.#aesKey, this.#ltiService);
 
     this.#buildRoutes();
     this.#ready = true;
@@ -93,6 +95,7 @@ export class DenoLTI {
   grade!: GradeService;
 
   nrps!: NamesAndRoleService;
+  groups!: GroupsService;
 
   loadUsers(
     membershipsUrl?: string,
@@ -105,6 +108,18 @@ export class DenoLTI {
     role: string
   ): Promise<any> {
     return this.nrps.loadUsers(membershipsUrl, accessToken, platformUrl, clientId, contextId, user, limit, role);
+  }
+
+  loadGroups(
+    groupsUrl?: string,
+    accessToken?: string,
+    platformUrl?: string,
+    clientId?: string,
+    contextId: string,
+    user: string,
+    limit: number,
+  ): Promise<any> {
+    return this.groups.loadGroups(groupsUrl, accessToken, platformUrl, clientId, contextId, user, limit);
   }
 
   get DeepLinking() {

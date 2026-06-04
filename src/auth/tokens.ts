@@ -139,6 +139,7 @@ export async function validateToken(
   const namesRoles = payload["https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice"] as
     | Record<string, unknown>
     | undefined;
+  const groups = payload["https://purl.imsglobal.org/spec/lti-gs/claim/groupsservice"] as | Record<string, string> | undefined;
   const deepLinkingSettings = payload["https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings"] as
     | Record<string, unknown>
     | undefined;
@@ -183,6 +184,7 @@ export async function validateToken(
     lis,
     endpoint,
     namesRoles,
+    groups,
   };
 
   if (contextToken.messageType === "LtiDeepLinkingRequest") {

@@ -57,6 +57,7 @@ export interface StoredContextToken {
   lis: Record<string, unknown>;
   endpoint?: Record<string, unknown>;
   namesRoles?: Record<string, unknown>;
+  groups?: Record<string, string>;
 }
 
 /** Combined token as seen by LTI handlers */
