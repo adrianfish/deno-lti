@@ -99,10 +99,12 @@ export class DenoLTI {
     accessToken?: string,
     platformUrl?: string,
     clientId?: string,
-    contextId?: string,
-    user?: string
+    contextId: string,
+    user: string,
+    limit: number,
+    role: string
   ): Promise<any> {
-    return this.nrps.loadUsers(membershipsUrl, accessToken, platformUrl, clientId, contextId, user);
+    return this.nrps.loadUsers(membershipsUrl, accessToken, platformUrl, clientId, contextId, user, limit, role);
   }
 
   get DeepLinking() {

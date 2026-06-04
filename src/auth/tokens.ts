@@ -185,8 +185,6 @@ export async function validateToken(
     namesRoles,
   };
 
-  console.log(contextToken);
-
   if (contextToken.messageType === "LtiDeepLinkingRequest") {
     if (!contextToken.deepLinkingSettings) throw new Error("No deep_linking_settings supplied");
     if (!contextToken.deepLinkingSettings.deep_link_return_url) throw new Error("No deep_link_return_url supplied");

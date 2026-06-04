@@ -40,6 +40,8 @@ export class NamesAndRoleService {
    *                 context_memberships_url.
    * @param {string} user Used to identify a registered platform and allow us to get the
    *                 context_memberships_url.
+   * @param {string} limit Number of members to retrieve at a time
+   * @param {string} role The role of the members to retrieve
    *
    * @return {object} A js object with the members and possibly the url for the next page of members
    */
@@ -48,9 +50,14 @@ export class NamesAndRoleService {
     accessToken?: string,
     platformUrl?: string,
     clientId?: string,
-    contextId?: string,
-    user?: string,
+    contextId: string,
+    user: string,
+    limit: number,
+    role: string,
   ): Promise<object | null> {
+
+    const contextToken = await this.#storage.getContextToken(`${contextId}${user}`);
+    const productFamilyCode = contextToken?.toolPlatform?.product_family_code;
     if (!accessToken && !membershipsUrl && platformUrl && clientId) {
       const platform = await this.#ltiService.getPlatform(platformUrl, clientId);
 
@@ -67,12 +74,13 @@ export class NamesAndRoleService {
         this.#aesKey,
       );
 
-      const contextToken = await this.#storage.getContextToken(`${contextId}${user}`);
-
       membershipsUrl = contextToken?.namesRoles?.context_memberships_url;
       if (!membershipsUrl) throw new Error("No context_memberships_url in context");
-      membershipsUrl += "?limit=10";
+      membershipsUrl += `?limit=${limit || 20}`;
+      role && (membershipsUrl += `&role=${role}`);
     }
+
+    console.debug(`Retrieving users from ${membershipsUrl}`);
 
     return fetch(membershipsUrl, {
         headers: {
@@ -85,14 +93,17 @@ export class NamesAndRoleService {
           const headers: HTTPHeaderLink = HTTPHeaderLink.parse(r.headers);
           const next: HTTPHeaderLinkEntry[] = headers.getByRel("next");
 
+          const users = await r.json();
+          users.members.forEach(m => {
+            const i = m.roles[0].lastIndexOf("#");
+            m.role = m.roles[0].substring(i + 1);
+          });
           if (next.length) {
-            const users = await r.json();
             users.next = next.length ? next[0][0] : undefined;
             users.accessToken = accessToken;
-            return users;
           }
 
-          return r.json();
+          return users;
         } else {
           console.error(`Network error while getting users from ${membershipsUrl}: ${r.status}`);
           console.error(await r.json());
