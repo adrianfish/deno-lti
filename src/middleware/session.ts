@@ -132,7 +132,6 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
 
     // Attach to Hono context variables for use in handlers
     c.set("token", { ...idToken, platformContext: contextToken });
-    c.set("context", contextToken);
     c.set("ltik", ltik);
     c.set("platformCode", payload.platformCode);
     c.set("platformUrl", payload.platformUrl);
@@ -144,7 +143,6 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
     // Route to the right callback
     const ltiContext = {
       token: { ...idToken, platformContext: contextToken },
-      context: contextToken,
       ltik,
     };
 

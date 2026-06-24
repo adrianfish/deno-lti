@@ -2,11 +2,12 @@
  * Names and Role Provisioning (NRPS) — LTI 1.3
  */
 
+import { HTTPHeaderLink, HTTPHeaderLinkEntry } from "@hugoalh/http-header-link";
+import { requestAccessToken } from "./oauth.ts";
+
 import type { Storage } from "../storage/storage.ts";
 import type { LTIToken } from "../types.ts";
 import type { LTIService } from "./lti-service.ts";
-import { HTTPHeaderLink, HTTPHeaderLinkEntry } from "@hugoalh/http-header-link";
-import { requestAccessToken } from "./oauth.ts";
 
 export class NamesAndRoleService {
   #storage: Storage;
@@ -97,6 +98,11 @@ export class NamesAndRoleService {
           users.members.forEach(m => {
             const i = m.roles[0].lastIndexOf("#");
             m.role = m.roles[0].substring(i + 1);
+
+            // Custom per-member params are delivered in the message array under the
+            // custom claim. Surface pronouns onto the member if the platform supplied it.
+            const custom = m.message?.[0]?.["https://purl.imsglobal.org/spec/lti/claim/custom"];
+            if (custom?.pronouns) m.pronouns = custom.pronouns;
           });
           if (next.length) {
             users.next = next.length ? next[0][0] : undefined;
