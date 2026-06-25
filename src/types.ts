@@ -58,6 +58,8 @@ export interface StoredContextToken {
   endpoint?: Record<string, unknown>;
   namesRoles?: Record<string, unknown>;
   groups?: Record<string, string>;
+  /** tool_platform claim — `product_family_code` identifies the LMS. */
+  toolPlatform?: Record<string, string>;
 }
 
 /** Combined token as seen by LTI handlers */
@@ -144,6 +146,13 @@ export interface ToolOptions {
   ltiRoute?: string;
   /** Cookie options applied to all set-cookie responses */
   cookies?: CookieOptions;
+  /**
+   * Extra custom parameters to request at dynamic registration, keyed by the
+   * custom-claim name the platform will return. Values may be literals or LTI
+   * substitution variables (e.g. "$Person.name.full"). Merged over the built-in
+   * Tier 1 enrichment parameters (profile picture, pronouns, …).
+   */
+  customParameters?: Record<string, string>;
 }
 
 export interface ContentItem {

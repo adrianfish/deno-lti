@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { Platform, ToolOptions } from "../types.ts";
 import type { Storage } from "../storage/storage.ts";
 import type { LTIService } from "../services/lti-service.ts";
+import { buildCustomParameters, filterSupportedVariables } from "../services/lms/enrichment-fields.ts";
 
 export async function handleRegisterPlatform(
   c: Context,
@@ -35,6 +36,25 @@ export async function handleRegisterPlatform(
     console.debug("");
   }
 
+  // Tier 1 enrichment: request profile picture / pronouns / … as custom
+  // substitution variables, picking family-specific variables and dropping any
+  // the platform doesn't advertise.
+  const platformConfig = (openIdConfig?.["https://purl.imsglobal.org/spec/lti-platform-configuration"] ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const familyCode = platformConfig["product_family_code"] as string | undefined;
+  const supportedVariables = (platformConfig["variables"] ?? []) as string[];
+
+  const customParameters = filterSupportedVariables(
+    buildCustomParameters(familyCode, {
+      "context_history": "$Context.id.history",
+      ...(options.customParameters ?? {}),
+    }),
+    supportedVariables,
+    options.debug,
+  );
+
   const data = {
     "application_type": "web",
     "response_types": ["id_token"],
@@ -50,9 +70,7 @@ export async function handleRegisterPlatform(
       "domain": service.toolDomain,
       "description": description,
       "target_link_uri": `https://${service.toolDomain}/lti`,
-      "custom_parameters": {
-        "context_history": "$Context.id.history",
-      },
+      "custom_parameters": customParameters,
       "messages": [
         {
           "type": "LtiDeepLinkingRequest",

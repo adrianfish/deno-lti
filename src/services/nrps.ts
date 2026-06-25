@@ -4,6 +4,8 @@
 
 import { HTTPHeaderLink, HTTPHeaderLinkEntry } from "@hugoalh/http-header-link";
 import { requestAccessToken } from "./oauth.ts";
+import { harvestCustom } from "./lms/enrichment-fields.ts";
+import { liftExtensions } from "./lms/extensions.ts";
 
 import type { Storage } from "../storage/storage.ts";
 import type { LTIToken } from "../types.ts";
@@ -99,10 +101,16 @@ export class NamesAndRoleService {
             const i = m.roles[0].lastIndexOf("#");
             m.role = m.roles[0].substring(i + 1);
 
-            // Custom per-member params are delivered in the message array under the
-            // custom claim. Surface pronouns onto the member if the platform supplied it.
+            // Tier 1 enrichment: per-member custom params are delivered in the
+            // message array under the custom claim. Harvest the configured
+            // enrichment fields (pronouns, profile picture, …) onto the member.
             const custom = m.message?.[0]?.["https://purl.imsglobal.org/spec/lti/claim/custom"];
-            if (custom?.pronouns) m.pronouns = custom.pronouns;
+            harvestCustom(m, custom);
+
+            // Lift LMS-specific extension blocks (e.g. Sakai's sakai_ext) onto
+            // the member top level. No-op for platforms without one, and a
+            // no-op for any property that has graduated to LTI core.
+            liftExtensions(m, productFamilyCode);
           });
           if (next.length) {
             users.next = next.length ? next[0][0] : undefined;
