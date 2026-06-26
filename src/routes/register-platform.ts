@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import type { Platform, ToolOptions } from "../types.ts";
 import type { Storage } from "../storage/storage.ts";
 import type { LTIService } from "../services/lti-service.ts";
-import { buildCustomParameters, filterSupportedVariables } from "../services/lms/enrichment-fields.ts";
+import { buildCustomParameters, filterSupportedVariables } from "../services/platform/enrichment-fields.ts";
 
 export async function handleRegisterPlatform(
   c: Context,

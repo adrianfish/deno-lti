@@ -4,8 +4,8 @@
 
 import { HTTPHeaderLink, HTTPHeaderLinkEntry } from "@hugoalh/http-header-link";
 import { requestAccessToken } from "./oauth.ts";
-import { harvestCustom } from "./lms/enrichment-fields.ts";
-import { liftExtensions } from "./lms/extensions.ts";
+import { harvestCustom } from "./platform/enrichment-fields.ts";
+import { liftExtensions } from "./platform/extensions.ts";
 
 import type { Storage } from "../storage/storage.ts";
 import type { LTIToken } from "../types.ts";
