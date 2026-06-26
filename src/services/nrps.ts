@@ -81,6 +81,9 @@ export class NamesAndRoleService {
       if (!membershipsUrl) throw new Error("No context_memberships_url in context");
       membershipsUrl += `?limit=${limit || 20}`;
       role && (membershipsUrl += `&role=${role}`);
+
+      const rlid = contextToken?.namesRoles?.rlid || contextToken?.resource?.id;
+      rlid && (membershipsUrl += `&rlid=${rlid}`);
     }
 
     console.debug(`Retrieving users from ${membershipsUrl}`);

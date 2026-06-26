@@ -41,7 +41,14 @@ export const ENRICHMENT_FIELDS: EnrichmentField[] = [
     // specific variable exists.
     param: "pronouns",
     memberProp: "pronouns",
-    byFamily: { canvas: "$Canvas.user.pronouns" },
+    byFamily: { canvas: "$Canvas.user.pronouns", "sakailms.org": "$User.pronouns" },
+  },
+  {
+    // Pronouns are not a core LTI variable; only request where a platform-
+    // specific variable exists.
+    param: "nickname",
+    memberProp: "nickname",
+    byFamily: { "sakailms.org": "$User.nickname" },
   },
 ];
 
