@@ -101,8 +101,17 @@ export class NamesAndRoleService {
 
           const users = await r.json();
           users.members.forEach(m => {
-            const i = m.roles[0].lastIndexOf("#");
-            m.role = m.roles[0].substring(i + 1);
+
+            const roles = new Set();
+
+            // Remove the full namespace from the roles - nobody needs that.
+            m.roles.forEach(r => {
+
+              const i = r.lastIndexOf("#");
+              i !== -1 && roles.add(r.substring(i + 1));
+            });
+
+            m.roles = Array.from(roles);
 
             // Tier 1 enrichment: per-member custom params are delivered in the
             // message array under the custom claim. Harvest the configured
