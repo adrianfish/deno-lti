@@ -23,6 +23,7 @@ export interface LmsExtension {
 }
 
 export const LMS_EXTENSIONS: LmsExtension[] = [
+  { family: "sakailms.org", extKey: "sakai_ext" },
   { family: "sakai", extKey: "sakai_ext" },
 ];
 
@@ -36,18 +37,21 @@ export const LMS_EXTENSIONS: LmsExtension[] = [
  * @param member The NRPS member object to decorate (mutated in place).
  * @param familyCode The platform's `product_family_code`, if known.
  */
-export function liftExtensions(
-  member: Record<string, unknown>,
-  familyCode: string | undefined,
-): void {
+export function liftExtensions(member: Record<string, unknown>, familyCode: string | undefined): void {
+
   if (!familyCode) return;
+
   for (const { family, extKey } of LMS_EXTENSIONS) {
     if (family !== familyCode) continue;
     const ext = member[extKey];
+
     if (!ext || typeof ext !== "object") continue;
-    for (const [key, value] of Object.entries(ext as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(ext)) {
       if (member[key] !== undefined) continue; // native / core value wins
       member[key] = value;
     }
+
+    // Now remove the ext section from the member. This doesn't need to go back to the calling client
+    delete member[extKey];
   }
 }

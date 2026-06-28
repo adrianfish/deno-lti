@@ -110,6 +110,10 @@ export class NamesAndRoleService {
             const custom = m.message?.[0]?.["https://purl.imsglobal.org/spec/lti/claim/custom"];
             harvestCustom(m, custom);
 
+            // Now delete the message property. Clients of this lib don't, or shouldn't need to know
+            // about LTI specific stuff. Ideally, anyway :)
+            delete m.message;
+
             // Lift LMS-specific extension blocks (e.g. Sakai's sakai_ext) onto
             // the member top level. No-op for platforms without one, and a
             // no-op for any property that has graduated to LTI core.

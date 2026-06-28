@@ -37,18 +37,18 @@ export const ENRICHMENT_FIELDS: EnrichmentField[] = [
     byFamily: { canvas: "$Canvas.user.avatarUrl" },
   },
   {
-    // Pronouns are not a core LTI variable; only request where a platform-
+    // Pronouns is not a core LTI variable; only request where a platform-
     // specific variable exists.
     param: "pronouns",
     memberProp: "pronouns",
-    byFamily: { canvas: "$Canvas.user.pronouns", "sakailms.org": "$User.pronouns" },
+    byFamily: { canvas: "$Canvas.user.pronouns", "sakai": "$User.pronouns", "sakailms.org": "$User.pronouns" },
   },
   {
-    // Pronouns are not a core LTI variable; only request where a platform-
+    // Nickname is not a core LTI variable; only request where a platform-
     // specific variable exists.
     param: "nickname",
     memberProp: "nickname",
-    byFamily: { "sakailms.org": "$User.nickname" },
+    byFamily: {"sakai": "$User.nickname", "sakailms.org": "$User.nickname" },
   },
 ];
 
