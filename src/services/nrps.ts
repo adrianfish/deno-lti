@@ -4,19 +4,22 @@
 
 import { HTTPHeaderLink, HTTPHeaderLinkEntry } from "@hugoalh/http-header-link";
 import { requestAccessToken } from "./oauth.ts";
-import { harvestCustom } from "./platform/enrichment-fields.ts";
-import { liftExtensions } from "./platform/extensions.ts";
+import { LMS_EXTENSIONS } from "./platform/extensions.ts";
+import { ENRICHMENT_FIELDS } from "./platform/enrichment-fields.ts";
 
 import type { Storage } from "../storage/storage.ts";
 import type { LTIToken } from "../types.ts";
 import type { LTIService } from "./lti-service.ts";
+import type { EnrichmentField } from "./platform/enrichment-fields.ts";
 
 export class NamesAndRoleService {
+
   #storage: Storage;
   #aesKey: CryptoKey;
   #ltiService: LTIService;
 
   constructor(storage: Storage, aesKey: CryptoKey, ltiService: LTIService) {
+
     this.#storage = storage;
     this.#aesKey = aesKey;
     this.#ltiService = ltiService;
@@ -117,7 +120,7 @@ export class NamesAndRoleService {
             // message array under the custom claim. Harvest the configured
             // enrichment fields (pronouns, profile picture, …) onto the member.
             const custom = m.message?.[0]?.["https://purl.imsglobal.org/spec/lti/claim/custom"];
-            harvestCustom(m, custom);
+            this.harvestCustom(m, custom);
 
             // Now delete the message property. Clients of this lib don't, or shouldn't need to know
             // about LTI specific stuff. Ideally, anyway :)
@@ -126,8 +129,9 @@ export class NamesAndRoleService {
             // Lift LMS-specific extension blocks (e.g. Sakai's sakai_ext) onto
             // the member top level. No-op for platforms without one, and a
             // no-op for any property that has graduated to LTI core.
-            liftExtensions(m, productFamilyCode);
+            this.liftExtensions(m, productFamilyCode);
           });
+
           if (next.length) {
             users.next = next.length ? next[0][0] : undefined;
             users.accessToken = accessToken;
@@ -140,5 +144,59 @@ export class NamesAndRoleService {
           return {};
         }
       });
+  }
+
+  /**
+   * Harvest enrichment fields out of a member's custom claim and onto the member.
+   *
+   * Native NRPS fields win: an existing truthy member property is never
+   * overwritten, so this only ever *fills gaps*. Unresolved substitution
+   * variables (values still beginning with `$`) and empty values are ignored.
+   *
+   * @param member The NRPS member object to decorate (mutated in place).
+   * @param custom The member's custom claim, e.g. `member.message[0][".../custom"]`.
+   */
+  harvestCustom(
+    member: Record<string, unknown>,
+    custom: Record<string, unknown> | undefined,
+  ): void {
+
+    if (!custom) return;
+
+    for (const field: EnrichmentField of ENRICHMENT_FIELDS) {
+      if (member[field.memberProp]) continue; // native value wins
+      const value = custom[field.param];
+      if (typeof value !== "string") continue;
+      if (value === "" || value.startsWith("$")) continue; // empty / unresolved
+      member[field.memberProp] = value;
+    }
+  }
+  /**
+   * Lift a platform's extension-block properties onto the member top level.
+   *
+   * Native/core member properties win: an existing top-level value is never
+   * overwritten, so this only ever fills gaps. This makes the lift a no-op the
+   * moment a property graduates to LTI 1.3 core and is emitted natively.
+   *
+   * @param member The NRPS member object to decorate (mutated in place).
+   * @param familyCode The platform's `product_family_code`, if known.
+   */
+  liftExtensions(member: Record<string, unknown>, familyCode: string | undefined): void {
+
+    if (!familyCode) return;
+
+    for (const { family, extKey } of LMS_EXTENSIONS) {
+      if (family !== familyCode) continue;
+      const ext = member[extKey];
+
+      if (!ext || typeof ext !== "object") continue;
+      for (const [key, value] of Object.entries(ext)) {
+        if (member[key] !== undefined) continue; // native / core value wins
+        member[key] = value;
+      }
+
+      // Now remove the ext section from the member. This doesn't need to go back to the calling client
+      delete member[extKey];
+    }
   }
 }

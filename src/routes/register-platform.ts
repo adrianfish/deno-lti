@@ -1,8 +1,10 @@
+import { ENRICHMENT_FIELDS } from "../services/platform/enrichment-fields.ts";
+
 import type { Context } from "hono";
 import type { Platform, ToolOptions } from "../types.ts";
 import type { Storage } from "../storage/storage.ts";
 import type { LTIService } from "../services/lti-service.ts";
-import { buildCustomParameters, filterSupportedVariables } from "../services/platform/enrichment-fields.ts";
+import type { EnrichmentField } from "../services/platform/enrichment-fields.ts";
 
 export async function handleRegisterPlatform(
   c: Context,
@@ -143,4 +145,53 @@ export async function handleRegisterPlatform(
   await service.registerPlatform(platform as Platform);
 
   return c.html("<script>(window.opener || window.parent).postMessage({subject:'org.imsglobal.lti.close'}, '*')</script>");
+}
+
+/**
+ * Build the `custom_parameters` map to send at registration, choosing the
+ * family-specific substitution variable where one is declared.
+ *
+ * @param familyCode The platform's `product_family_code`, if known.
+ * @param extra Literal/extra custom parameters merged over the enrichment ones.
+ */
+function buildCustomParameters(
+  familyCode?: string,
+  extra: Record<string, string> = {},
+): Record<string, string> {
+
+  const params: Record<string, string> = {};
+  for (const field: EnrichmentField of ENRICHMENT_FIELDS) {
+    const variable = (familyCode && field.byFamily?.[familyCode]) ?? field.variable;
+    if (variable) params[field.param] = variable;
+  }
+  return { ...params, ...extra };
+}
+
+/**
+ * Drop substitution-variable parameters the platform doesn't advertise.
+ *
+ * Dynamic registration platform configuration may list the substitution
+ * variables it supports (without the leading `$`). Requesting an unsupported
+ * variable can cause some platforms to echo the raw `$Foo.bar` string back or
+ * reject it, so when the list is present we filter to advertised variables only.
+ * Literal parameters (anything not starting with `$`) are always kept.
+ */
+function filterSupportedVariables(
+  params: Record<string, string>,
+  supportedVariables: string[] = [],
+  debug = false,
+): Record<string, string> {
+
+  if (!supportedVariables.length) return params;
+
+  const supported = new Set(supportedVariables);
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value.startsWith("$") && !supported.has(value.slice(1))) {
+      if (debug) console.debug(`Dropping unsupported custom parameter ${key}=${value}`);
+      continue;
+    }
+    result[key] = value;
+  }
+  return result;
 }
