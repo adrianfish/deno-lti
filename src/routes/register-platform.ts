@@ -57,6 +57,15 @@ export async function handleRegisterPlatform(
     options.debug,
   );
 
+  const scopes = [
+    "https://purl.imsglobal.org/spec/lti-reg/scope/registration.readonly",
+    "openid",
+    "https://purl.imsglobal.org/spec/lti-reg/scope/registration",
+    "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem",
+    "https://purl.imsglobal.org/spec/lti-ags/scope/score",
+    "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
+  ];
+
   const data = {
     "application_type": "web",
     "response_types": ["id_token"],
@@ -67,7 +76,7 @@ export async function handleRegisterPlatform(
     "logo_uri": logoUri,
     "jwks_uri": `https://${service.toolDomain}/lti/keys`,
     "token_endpoint_auth_method": "private_key_jwt",
-    "scope": "https://purl.imsglobal.org/spec/lti-reg/scope/registration.readonly openid https://purl.imsglobal.org/spec/lti-reg/scope/registration https://purl.imsglobal.org/spec/lti-ags/scope/lineitem https://purl.imsglobal.org/spec/lti-ags/scope/score https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
+    "scope": scopes.join(" "),
     "https://purl.imsglobal.org/spec/lti-tool-configuration": {
       "domain": service.toolDomain,
       "description": description,
@@ -91,6 +100,7 @@ export async function handleRegisterPlatform(
       "claims": ["sub", "name", "given_name", "family_name"],
     },
   };
+
 
   if (options.debug) {
     console.debug("DATA TO BE SENT");

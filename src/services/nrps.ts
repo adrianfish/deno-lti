@@ -75,7 +75,7 @@ export class NamesAndRoleService {
         platformUrl,
         clientId,
         this.#ltiService.buildKeyId(platform),
-        ["https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly"],
+        ["https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly", "sakai.lti.api.content.read"],
         this.#storage,
         this.#aesKey,
       );
