@@ -69,13 +69,17 @@ export class NamesAndRoleService {
 
       if (!platform) return null;
 
+      const requestedScopes = [
+        "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
+      ];
+
       accessToken = await requestAccessToken(
         this.#ltiService.toolDomain,
         platform.accesstokenEndpoint,
         platformUrl,
         clientId,
         this.#ltiService.buildKeyId(platform),
-        ["https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly", "sakai.lti.api.content.read"],
+        requestedScopes,
         this.#storage,
         this.#aesKey,
       );
@@ -104,6 +108,8 @@ export class NamesAndRoleService {
 
           const users = await r.json();
           users.members.forEach(m => {
+
+            m.user_id = m.user_id.substring(m.user_id.lastIndexOf("/") + 1);
 
             const roles = new Set();
 
