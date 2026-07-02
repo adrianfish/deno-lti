@@ -89,6 +89,8 @@ export async function requestAccessToken(
 
   const data = await res.json();
   const accessToken = data.access_token as string;
+
+  // Use the token's expiry to set the cache ttl
   const expiresIn = (data.expires_in as number) ?? 3600;
 
   // Cache it
@@ -96,7 +98,7 @@ export async function requestAccessToken(
     token: accessToken,
     platformUrl,
     clientId,
-    scopes: scopeStr,
+    requestedScopes: scopeStr,
     expiresAt: Date.now() + expiresIn * 1000 - 30_000, // 30s safety margin
   };
   await storage.saveAccessToken(record, Math.min(expiresIn * 1000, ACCESS_TOKEN_TTL_MS));

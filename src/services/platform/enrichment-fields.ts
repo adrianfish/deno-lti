@@ -32,16 +32,6 @@ export const ENRICHMENT_FIELDS: EnrichmentField[] = [
     byFamily: { canvas: "$Canvas.user.avatarUrl" },
   },
   {
-    param: "direct_url",
-    memberProp: "sakaiDirectUrl",
-    byFamily: { sakai: "$Sakai.direct.url", "sakailms.org": "$Sakai.direct.url" },
-  },
-  {
-    param: "api_url",
-    memberProp: "sakaiApiUrl",
-    byFamily: { sakai: "$Sakai.api.url", "sakailms.org": "$Sakai.api.url" },
-  },
-  {
     param: "pronouns",
     memberProp: "pronouns",
     byFamily: { canvas: "$Canvas.user.pronouns", "sakai": "$User.pronouns", "sakailms.org": "$User.pronouns" },

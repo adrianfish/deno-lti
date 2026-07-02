@@ -104,7 +104,7 @@ export interface StoredAccessToken {
   platformUrl: string;
   clientId: string;
   /** Space-separated scope string */
-  scopes: string;
+  requestedScopes: string;
   expiresAt: number;
 }
 

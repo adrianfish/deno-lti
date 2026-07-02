@@ -48,6 +48,11 @@ export async function handleRegisterPlatform(
   const familyCode = platformConfig["product_family_code"] as string | undefined;
   const supportedVariables = (platformConfig["variables"] ?? []) as string[];
 
+  if (options.debug) {
+    console.debug("SUPPORTED VARIABLES:");
+    console.debug(supportedVariables);
+  }
+
   const customParameters = filterSupportedVariables(
     buildCustomParameters(familyCode, {
       "context_history": "$Context.id.history",
@@ -57,13 +62,18 @@ export async function handleRegisterPlatform(
     options.debug,
   );
 
-  const scopes = [
-    "https://purl.imsglobal.org/spec/lti-reg/scope/registration.readonly",
-    "openid",
-    "https://purl.imsglobal.org/spec/lti-reg/scope/registration",
-    "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem",
-    "https://purl.imsglobal.org/spec/lti-ags/scope/score",
+  if (options.debug) {
+    console.debug("FILTERED CUSTOM PARAMETERS:");
+    console.debug(customParameters);
+  }
+
+  const scopesRequested = [
     "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
+    "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem",
+    "https://purl.imsglobal.org/spec/lti-reg/scope/registration",
+    "https://purl.imsglobal.org/spec/lti-reg/scope/registration.readonly",
+    "https://purl.imsglobal.org/spec/lti-ags/scope/score",
+    "sakai.lti.api.content.read",
   ];
 
   const data = {
@@ -76,7 +86,7 @@ export async function handleRegisterPlatform(
     "logo_uri": logoUri,
     "jwks_uri": `https://${service.toolDomain}/lti/keys`,
     "token_endpoint_auth_method": "private_key_jwt",
-    "scope": scopes.join(" "),
+    "scope": scopesRequested.join(" "),
     "https://purl.imsglobal.org/spec/lti-tool-configuration": {
       "domain": service.toolDomain,
       "description": description,
@@ -101,7 +111,6 @@ export async function handleRegisterPlatform(
     },
   };
 
-
   if (options.debug) {
     console.debug("DATA TO BE SENT");
     console.debug(data);
@@ -125,6 +134,7 @@ export async function handleRegisterPlatform(
       throw new Error(`Network error while registering at endpoint ${registrationEndpoint}. Status: ${r.status}`);
     })
     .then((d) => {
+
       if (options.debug) {
         console.debug("");
         console.debug(" ==== CLIENT_REGISTRATION_RESPONSE ====");

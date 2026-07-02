@@ -171,6 +171,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       idTokenJwt: string,
       state: string,
     ): Promise<Response> {
+
       // Retrieve state from DB
       const stateData = await storage.getState(state);
       if (!stateData) {

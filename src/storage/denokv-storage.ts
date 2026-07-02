@@ -167,7 +167,7 @@ export class DenoKVStorage implements Storage {
 
   async saveAccessToken(record: StoredAccessToken, ttlMs: number): Promise<void> {
     await this.#kv.set(
-      ["accesstoken", record.platformUrl, record.clientId, record.scopes],
+      ["accesstoken", record.platformUrl, record.clientId, record.requestedScopes],
       record,
       { expireIn: ttlMs },
     );
@@ -176,13 +176,13 @@ export class DenoKVStorage implements Storage {
   async getAccessToken(
     platformUrl: string,
     clientId: string,
-    scopes: string,
+    requestedScopes: string,
   ): Promise<StoredAccessToken | null> {
     const entry = await this.#kv.get<StoredAccessToken>([
       "accesstoken",
       platformUrl,
       clientId,
-      scopes,
+      requestedScopes,
     ]);
     if (!entry.value) return null;
     if (entry.value.expiresAt < Date.now()) return null;
