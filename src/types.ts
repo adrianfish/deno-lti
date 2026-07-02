@@ -153,6 +153,8 @@ export interface ToolOptions {
    * Tier 1 enrichment parameters (profile picture, pronouns, …).
    */
   customParameters?: Record<string, string>;
+
+  services?: Array<string>;
 }
 
 export interface ContentItem {

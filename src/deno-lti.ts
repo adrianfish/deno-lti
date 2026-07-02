@@ -8,6 +8,7 @@ import { handleRegisterPlatform } from "./routes/register-platform.ts";
 import { DenoKVStorage } from "./storage/denokv-storage.ts";
 import { GradeService } from "./services/grade.ts";
 import { NamesAndRoleService } from "./services/nrps.ts";
+import { GRADING, GROUPS, ROSTER } from "./constants.ts";
 import { GroupsService } from "./services/groups.ts";
 import { LTIService } from "./services/lti-service.ts";
 import { createDeepLinkingForm, createDeepLinkingMessage } from "./services/deep-linking.ts";
@@ -72,15 +73,23 @@ export class DenoLTI {
     this.#aesKey = await deriveAesKey(secret);
     this.#storage = await DenoKVStorage.open();
     this.#options = options;
-    this.grade = new GradeService(this.#storage, this.#aesKey);
+
+    if (options.services?.includes?.(GRADING)) {
+      this.grade = new GradeService(this.#storage, this.#aesKey);
+    }
 
     this.#ltiService = new LTIService(options);
     this.#ltiService.storage = this.#storage;
     this.#ltiService.aesKey = this.#aesKey;
     this.#ltiService.toolDomain = toolDomain;
 
-    this.nrps = new NamesAndRoleService(this.#storage, this.#aesKey, this.#ltiService);
-    this.groups = new GroupsService(this.#storage, this.#aesKey, this.#ltiService);
+    if (options.services.includes?.(ROSTER)) {
+      this.nrps = new NamesAndRoleService(this.#storage, this.#aesKey, this.#ltiService);
+    }
+
+    if (options.services.includes?.(GROUPS)) {
+      this.groups = new GroupsService(this.#storage, this.#aesKey, this.#ltiService);
+    }
 
     this.#buildRoutes();
     this.#ready = true;
@@ -93,7 +102,6 @@ export class DenoLTI {
   // ---------------------------------------------------------------------------
 
   grade!: GradeService;
-
   nrps!: NamesAndRoleService;
   groups!: GroupsService;
 
@@ -107,7 +115,12 @@ export class DenoLTI {
     limit: number,
     role: string
   ): Promise<any> {
-    return this.nrps.loadUsers(membershipsUrl, accessToken, platformUrl, clientId, contextId, user, limit, role);
+
+    if (this.#options.services.includes?.(ROSTER)) {
+      return this.nrps.loadUsers(membershipsUrl, accessToken, platformUrl, clientId, contextId, user, limit, role);
+    } else {
+      return Promise.resolve("The roster service is not active");
+    }
   }
 
   loadGroups(
@@ -119,7 +132,12 @@ export class DenoLTI {
     user: string,
     limit: number,
   ): Promise<any> {
-    return this.groups.loadGroups(groupsUrl, accessToken, platformUrl, clientId, contextId, user, limit);
+
+    if (this.#options.services.includes?.(GROUPS)) {
+      return this.groups.loadGroups(groupsUrl, accessToken, platformUrl, clientId, contextId, user, limit);
+    } else {
+      return Promise.resolve("The groups service is not active");
+    }
   }
 
   get DeepLinking() {

@@ -1,4 +1,5 @@
 import { ENRICHMENT_FIELDS } from "../services/platform/enrichment-fields.ts";
+import { DEEPLINKING, GRADING, ROSTER  } from "../constants.ts";
 
 import type { Context } from "hono";
 import type { Platform, ToolOptions } from "../types.ts";
@@ -68,13 +69,43 @@ export async function handleRegisterPlatform(
   }
 
   const scopesRequested = [
-    "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
-    "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem",
     "https://purl.imsglobal.org/spec/lti-reg/scope/registration",
     "https://purl.imsglobal.org/spec/lti-reg/scope/registration.readonly",
-    "https://purl.imsglobal.org/spec/lti-ags/scope/score",
-    "sakai.lti.api.content.read",
   ];
+
+  if (options.services?.includes?.(DEEPLINKING)) {
+    scopesRequested.push("https://purl.imsglobal.org/spec/lti-ags/scope/lineitem");
+  }
+
+  if (options.services?.includes?.(ROSTER)) {
+    scopesRequested.push("https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly");
+  }
+
+  if (options.services?.includes?.(GRADING)) {
+    scopesRequested.push("https://purl.imsglobal.org/spec/lti-ags/scope/score");
+  }
+
+  const messages = [
+    {
+      "type": "LtiResourceLinkRequest",
+      "target_link_uri": `https://${service.toolDomain}/lti`,
+      "placements": [ "course_navigation", "https://canvas.instructure.com/lti/course_navigation" ],
+      "https://canvas.instructure.com/lti/course_navigation/default_enabled": true,
+      "https://canvas.instructure.com/lti/display_type": "full_width_in_context",
+    },
+  ];
+
+  if (options.services?.includes?.(DEEPLINKING)) {
+    messages.push(
+      {
+        "type": "LtiDeepLinkingRequest",
+        "target_link_uri": `https://${service.toolDomain}/lti`,
+        "label": "Add a language",
+        "placements": [ "https://canvas.instructure.com/lti/assignment_selection" ],
+      }
+    );
+  }
+
 
   const data = {
     "application_type": "web",
@@ -92,21 +123,7 @@ export async function handleRegisterPlatform(
       "description": description,
       "target_link_uri": `https://${service.toolDomain}/lti`,
       "custom_parameters": customParameters,
-      "messages": [
-        {
-          "type": "LtiDeepLinkingRequest",
-          "target_link_uri": `https://${service.toolDomain}/lti`,
-          "label": "Add a language",
-          "placements": [ "https://canvas.instructure.com/lti/assignment_selection" ],
-        },
-        {
-          "type": "LtiResourceLinkRequest",
-          "target_link_uri": `https://${service.toolDomain}/lti`,
-          "placements": [ "course_navigation", "https://canvas.instructure.com/lti/course_navigation" ],
-          "https://canvas.instructure.com/lti/course_navigation/default_enabled": true,
-          "https://canvas.instructure.com/lti/display_type": "full_width_in_context",
-        },
-      ],
+      messages,
       "claims": ["sub", "name", "given_name", "family_name"],
     },
   };
