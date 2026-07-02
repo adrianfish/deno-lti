@@ -28,27 +28,25 @@ export const ENRICHMENT_FIELDS: EnrichmentField[] = [
   {
     param: "user_image",
     memberProp: "picture",
-    variable: "$User.image",
-    byFamily: { canvas: "$Canvas.user.avatarUrl" },
   },
   {
     param: "pronouns",
     memberProp: "pronouns",
-    byFamily: { canvas: "$Canvas.user.pronouns", "sakai": "$User.pronouns", "sakailms.org": "$User.pronouns" },
+    byFamily: { canvas: "$Canvas.user.pronouns", "sakailms.org": "$User.pronouns" },
   },
   {
     param: "nickname",
     memberProp: "nickname",
-    byFamily: {"sakai": "$User.nickname", "sakailms.org": "$User.nickname" },
+    byFamily: {"sakailms.org": "$User.nickname" },
   },
   {
     param: "phoneticName",
     memberProp: "phoneticName",
-    byFamily: {"sakai": "$User.phoneticname", "sakailms.org": "$User.phoneticname" },
+    byFamily: {"sakailms.org": "$User.phoneticname" },
   },
   {
     param: "mobile",
     memberProp: "mobile",
-    byFamily: {"sakai": "$User.mobile", "sakailms.org": "$User.mobile" },
+    byFamily: {"sakailms.org": "$User.mobile" },
   },
 ];
