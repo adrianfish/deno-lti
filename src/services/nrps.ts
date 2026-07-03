@@ -102,6 +102,7 @@ export class NamesAndRoleService {
         },
       })
       .then(async r => {
+
         if (r.ok) {
           const headers: HTTPHeaderLink = HTTPHeaderLink.parse(r.headers);
           const next: HTTPHeaderLinkEntry[] = headers.getByRel("next");

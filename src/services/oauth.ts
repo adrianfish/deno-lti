@@ -49,7 +49,8 @@ export async function requestAccessToken(
   scopes: string[],
   storage: Storage,
   aesKey: CryptoKey,
-): Promise<string> {
+): Promise<string | null> {
+
   const scopeStr = scopes.sort().join(" ");
 
   // Check cache
@@ -84,7 +85,8 @@ export async function requestAccessToken(
   });
 
   if (!res.ok) {
-    throw new Error(`Access token request failed: ${res.status} ${await res.text()}`);
+    console.error(`Access token request failed: ${res.status} ${await res.text()}`);
+    return null;
   }
 
   const data = await res.json();
