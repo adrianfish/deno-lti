@@ -29,7 +29,7 @@ interface SessionMiddlewareOptions {
   storage: Storage;
   secret: string;
   ltiService: LTIService;
-  connectCallback: LTIHandler;
+  launchCallback: LTIHandler;
   deepLinkingCallback: LTIHandler;
   onSessionTimeout: ErrorHandler;
   onInvalidToken: ErrorHandler;
@@ -59,7 +59,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
     storage,
     secret,
     ltiService,
-    connectCallback,
+    launchCallback,
     deepLinkingCallback,
     onSessionTimeout,
     onInvalidToken,
@@ -158,7 +158,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
     }
 
     if (pathname === ltiRoute) {
-      return connectCallback(c, ltiContext);
+      return launchCallback(c, ltiContext);
     }
 
     return next();

@@ -22,6 +22,7 @@
  */
 
 export { DenoLTI } from "./src/deno-lti.ts";
+export { buildFilter } from "./src/utils/filters.ts";
 export * from   "./src/constants.ts";
 
 export type { LineItem, Result, Score } from "./src/services/grade.ts";

@@ -1,5 +1,8 @@
+import { buildFilter } from "../utils/filters.ts";
 import type { Storage } from "./storage.ts";
 import type { OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
+
+const LIST_CHUNK = 200;
 
 /**
  * DenoKVStorage — zero-dependency storage using Deno's built-in KV store.
@@ -25,6 +28,7 @@ export class DenoKVStorage implements Storage {
   }
 
   static async open(kv?: Deno.Kv, path?: string): Promise<DenoKVStorage> {
+
     if (kv) return new DenoKVStorage(kv);
     //const newKv = await Deno.openKv(path);
     return new DenoKVStorage(await Deno.openKv(path));
@@ -187,6 +191,140 @@ export class DenoKVStorage implements Storage {
     if (!entry.value) return null;
     if (entry.value.expiresAt < Date.now()) return null;
     return entry.value;
+  }
+
+  async isMembersCaching(clientId: string, contextId: string): Promise<boolean> {
+    return !!(await this.#kv.get([ "caching", clientId, contextId ])).value;
+  }
+
+  async setMembersCaching(clientId: string, contextId: string): Promise<boolean> {
+    return (await this.#kv.set([ "caching", clientId, contextId ], true)).ok;
+  }
+
+  async unsetMembersCaching(clientId: string, contextId: string): Promise<void> {
+    return await this.#kv.delete([ "caching", clientId, contextId ]);
+  }
+
+  #membersPrefix(clientId: string, contextId: string): Deno.KvKey {
+    return [ "members", clientId, contextId ];
+  }
+
+  async setUser(clientId: string, contextId: string, user: any): Promise<boolean> {
+
+    let id = user.user_id;
+    const index = id.lastIndexOf("/");
+    if (index !== -1) id = id.substring(index + 1);
+
+    delete user.lti11_legacy_user_id;
+    delete user.lis_person_sourcedid;
+
+    const expireIn: number = 15 * 60 * 1000;
+    return (await this.#kv.set([ ...this.#membersPrefix(clientId, contextId), id ], user, { expireIn })).ok;
+  }
+
+  async invalidateTotals(clientId: string, contextId: string): Promise<void> {
+
+    let cursor: string | undefined;
+    while (true) {
+      const iter = this.#kv.list({ prefix: [ "totals", clientId, contextId ] }, { cursor, limit: LIST_CHUNK });
+      let seen = 0;
+      const keys: Deno.KvKey[] = [];
+      for await (const entry of iter) {
+        seen++;
+        keys.push(entry.key);
+      }
+      for (const k of keys) await this.#kv.delete(k);
+      cursor = iter.cursor || undefined;
+      if (!cursor || seen === 0) break;
+    }
+  }
+
+  async hasAnyUsers(clientId: string, contextId: string): Promise<boolean> {
+
+    // Try and get one user
+    const iter = this.#kv.list({ prefix: this.#membersPrefix(clientId, contextId) }, { limit: 1 });
+    for await (const _ of iter) return true;
+    return false;
+  }
+
+  async getPageOfUsers(
+    clientId: string,
+    contextId: string,
+    start: number,
+    length: number,
+    filter?: UserFilter,
+  ): Promise<UserPage> {
+
+    const prefix = this.#membersPrefix(clientId, contextId);
+    const users = [];
+    let recordsTotal = 0;
+    let recordsFiltered = 0;
+    let cursor: string | undefined;
+
+    while (true) {
+      const iter = this.#kv.list({ prefix }, { cursor, limit: LIST_CHUNK });
+      let seenInChunk = 0;
+      for await (const entry of iter) {
+        seenInChunk++;
+        recordsTotal++;
+        const user = entry.value;
+        if (filter && !filter(user)) continue;
+        if (recordsFiltered >= start && users.length < length) {
+          users.push(user);
+        }
+        recordsFiltered++;
+      }
+      cursor = iter.cursor || undefined;
+      if (!cursor || seenInChunk === 0) break;
+    }
+
+    return { users, recordsTotal, recordsFiltered };
+  }
+
+  async getAllUsers(clientId: string, contextId: string): Promise<object[]> {
+
+    const all: object[] = [];
+    let cursor: string | undefined;
+    while (true) {
+      const iter = this.#kv.list({ prefix: this.#membersPrefix(clientId, contextId) }, { cursor, limit: LIST_CHUNK });
+      let seen = 0;
+      for await (const entry of iter) {
+        seen++;
+        all.push(entry.value);
+      }
+      cursor = iter.cursor || undefined;
+      if (!cursor || seen === 0) break;
+    }
+    return all;
+  }
+
+  async getCachedTotals(clientId: string, contextId: string, groupId: string, role: string): Promise<Record<string, number> | null> {
+    return (await this.#kv.get([ "totals", clientId, contextId, groupId, role ])).value;
+  }
+
+  async countUsers(clientId: string, contextId: string, groupId: string, role: string): Promise<Record<string, number>> {
+
+    let totals = await this.getCachedTotals(clientId, contextId, groupId, role);
+
+    if (!totals) {
+      console.debug(`Totals for clientId ${clientId}, contextId ${contextId}, groupId ${groupId} and role ${role} not cached. Building ...`);
+
+      totals = {};
+      const filter = buildFilter(role, groupId);
+      const all = await this.getAllUsers(clientId, contextId);
+      for (const m of all) {
+        if (filter && !filter(m)) continue;
+        m.roles.forEach(r => {
+          totals[r] = Object.hasOwn(totals, r) ? totals[r] + 1 : 1;
+        });
+      }
+
+      await this.#kv.set([ "totals", clientId, contextId, groupId, role ], totals);
+    } else {
+      console.debug(`Using cached totals for clientId ${clientId}, contextId ${contextId}, groupId ${groupId} and role ${role}.`);
+    }
+
+    return totals;
   }
 
   close(): void {

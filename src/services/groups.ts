@@ -40,13 +40,13 @@ export class GroupsService {
    * @return {object} A js object with the groups
    */
   async loadGroups(
-    groupsUrl?: string | unknown,
-    accessToken?: string,
-    platformUrl?: string,
-    clientId?: string,
-    contextId: string,
-    user: string,
-    limit: number,
+    groupsUrl?: string | null,
+    accessToken?: string | null,
+    platformUrl?: string | null,
+    clientId?: string | null,
+    contextId?: string,
+    user?: string,
+    limit?: number,
   ): Promise<object | null> {
 
     const contextToken = await this.#storage.getContextToken(`${contextId}${user}`);

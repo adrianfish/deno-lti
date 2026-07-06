@@ -85,4 +85,26 @@ export interface Storage {
     clientId: string,
     scopes: string,
   ): Promise<StoredAccessToken | null>;
+
+  // -------------------------------------------------------------------------
+  // Membership cache (NRPS) — cached course members with a build-in-progress flag
+  // -------------------------------------------------------------------------
+
+  /** True while a members cache build is in progress for this context */
+  isMembersCaching(clientId: string, contextId: string): Promise<boolean>;
+
+  /** Marks a members cache build as in progress */
+  setMembersCaching(clientId: string, contextId: string): Promise<boolean>;
+
+  /** Clears the members-cache-in-progress flag */
+  unsetMembersCaching(clientId: string, contextId: string): Promise<void>;
+
+  /** Stores a single cached member */
+  setUser(clientId: string, contextId: string, user: object): Promise<boolean>;
+
+  /** True if any members are cached for this context */
+  hasAnyUsers(clientId: string, contextId: string): Promise<boolean>;
+
+  /** Drops any cached member-count totals for this context */
+  invalidateTotals(clientId: string, contextId: string): Promise<void>;
 }

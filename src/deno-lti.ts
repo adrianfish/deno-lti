@@ -21,6 +21,7 @@ export class DenoLTI {
 
   #app = new Hono();
   #storage!: Storage;
+  #nrps!: NamesAndRoleService;
   #ltiService!: LTIService;
   #secret!: string;
   #clientName!: string;
@@ -28,7 +29,7 @@ export class DenoLTI {
   #description!: string;
   #aesKey!: CryptoKey;
   #options!: ToolOptions;
-  #connectCallback: LTIHandler = (c) => c.text("No onConnect handler registered", 500);
+  #launchCallback: LTIHandler = (c) => c.text("No onLaunch handler registered", 500);
   #deepLinkingCallback: LTIHandler = (c) => c.text("No onDeepLinking handler registered", 500);
   #sessionTimeoutCallback: ErrorHandler = (c) => c.text("Session expired", 401);
   #invalidTokenCallback: ErrorHandler = (c) => c.text("Invalid token", 401);
@@ -74,7 +75,7 @@ export class DenoLTI {
     this.#storage = await DenoKVStorage.open();
     this.#options = options;
 
-    if (options.services?.includes?.(GRADING)) {
+    if (options.services?.includes(GRADING)) {
       this.grade = new GradeService(this.#storage, this.#aesKey);
     }
 
@@ -83,11 +84,11 @@ export class DenoLTI {
     this.#ltiService.aesKey = this.#aesKey;
     this.#ltiService.toolDomain = toolDomain;
 
-    if (options.services.includes?.(ROSTER)) {
-      this.nrps = new NamesAndRoleService(this.#storage, this.#aesKey, this.#ltiService);
+    if (options.services?.includes(ROSTER)) {
+      this.#nrps = new NamesAndRoleService(this.#storage, this.#aesKey, this.#ltiService);
     }
 
-    if (options.services.includes?.(GROUPS)) {
+    if (options.services?.includes(GROUPS)) {
       this.groups = new GroupsService(this.#storage, this.#aesKey, this.#ltiService);
     }
 
@@ -96,48 +97,110 @@ export class DenoLTI {
     return this;
   }
 
-
   // ---------------------------------------------------------------------------
   // Public services (available after setup())
   // ---------------------------------------------------------------------------
 
   grade!: GradeService;
-  nrps!: NamesAndRoleService;
   groups!: GroupsService;
 
-  loadUsers(
-    membershipsUrl?: string,
-    accessToken?: string,
-    platformUrl?: string,
-    clientId?: string,
+  async getPageOfUsers(
+    clientId: string,
     contextId: string,
-    user: string,
-    limit: number,
-    role: string
-  ): Promise<any> {
+    startNum: number,
+    lengthNum: number,
+    filter?: UserFilter,
+  ): Promise<UserPage> {
 
-    if (this.#options.services.includes?.(ROSTER)) {
-      return this.nrps.loadUsers(membershipsUrl, accessToken, platformUrl, clientId, contextId, user, limit, role);
-    } else {
-      return Promise.resolve("The roster service is not active");
+    return this.#nrps.getPageOfUsers(clientId, contextId, startNum, lengthNum, filter);
+  }
+
+  async ensureMembersCached(
+    platformUrl: string,
+    clientId: string,
+    contextId: string,
+    userId: string,
+    limit: number,
+  ): Promise<void> {
+
+    if (this.#options.services?.includes(ROSTER)) {
+      await this.#nrps.ensureMembersCached(
+        this,
+        this.#storage,
+        platformUrl,
+        clientId,
+        contextId,
+        userId,
+        limit,
+      );
     }
   }
 
-  loadGroups(
-    groupsUrl?: string,
-    accessToken?: string,
-    platformUrl?: string,
-    clientId?: string,
+  async isMembersCacheBuilding(
+    clientId: string,
+    contextId: string
+  ): Promise<boolean> {
+
+    if (this.#options.services?.includes(ROSTER)) {
+      return await this.#nrps.isMembersCacheBuilding(clientId, contextId);
+    }
+
+    return false;
+  }
+
+  async getGroups(
+    clientId: string,
     contextId: string,
-    user: string,
-    limit: number,
+  ): Promise<Array<Record<string, string>> | null> {
+
+    if (this.#options.services?.includes(ROSTER)) {
+      return this.#nrps.getGroups(clientId, contextId);
+    }
+
+    return null;
+  }
+
+  async getCachedTotals(
+    clientId: string,
+    contextId: string,
+  ): Promise<Record<string, string> | null> {
+
+    if (this.#options.services?.includes(ROSTER)) {
+      return this.#nrps.getCachedTotals(clientId, contextId);
+    }
+
+    return null;
+  }
+
+  async countUsers(
+    clientId: string,
+    contextId: string,
+    groupId: string,
+    role: string,
+  ): Promise<Record<string, string> | null> {
+
+    if (this.#options.services?.includes(ROSTER)) {
+      return this.#nrps.countUsers(clientId, contextId, groupId, role);
+    }
+
+    return null;
+  }
+
+  async loadGroups(
+    groupsUrl?: string | null,
+    accessToken?: string | null,
+    platformUrl?: string | null,
+    clientId?: string | null,
+    contextId?: string,
+    user?: string,
+    limit?: number,
   ): Promise<any> {
 
-    if (this.#options.services.includes?.(GROUPS)) {
+    if (this.#options.services?.includes(GROUPS)) {
       return this.groups.loadGroups(groupsUrl, accessToken, platformUrl, clientId, contextId, user, limit);
-    } else {
-      return Promise.resolve("The groups service is not active");
     }
+
+    return null;
   }
 
   get DeepLinking() {
@@ -174,8 +237,8 @@ export class DenoLTI {
   // Callback registration
   // ---------------------------------------------------------------------------
 
-  onConnect(handler: LTIHandler): this {
-    this.#connectCallback = handler;
+  onLaunch(handler: LTIHandler): this {
+    this.#launchCallback = handler;
     return this;
   }
 
@@ -273,7 +336,7 @@ export class DenoLTI {
       storage: this.#storage,
       secret: this.#secret,
       ltiService: this.#ltiService,
-      connectCallback: this.#connectCallback,
+      launchCallback: this.#launchCallback,
       deepLinkingCallback: this.#deepLinkingCallback,
       onSessionTimeout: this.#sessionTimeoutCallback,
       onInvalidToken: this.#invalidTokenCallback,

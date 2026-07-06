@@ -7,10 +7,18 @@ import { requestAccessToken } from "./oauth.ts";
 import { LMS_EXTENSIONS } from "./platform/extensions.ts";
 import { ENRICHMENT_FIELDS } from "./platform/enrichment-fields.ts";
 
+import type { DenoLTI } from "../deno-lti.ts";
 import type { Storage } from "../storage/storage.ts";
 import type { LTIToken } from "../types.ts";
 import type { LTIService } from "./lti-service.ts";
-import type { EnrichmentField } from "./platform/enrichment-fields.ts";
+
+/** A page of NRPS members, plus the cursor/token for the next page (if any). */
+interface MembersPage {
+  members: any[];
+  next?: string;
+  accessToken?: string;
+  [key: string]: unknown;
+}
 
 export class NamesAndRoleService {
 
@@ -52,15 +60,15 @@ export class NamesAndRoleService {
    * @return {object} A js object with the members and possibly the url for the next page of members
    */
   async loadUsers(
-    membershipsUrl?: string | unknown,
-    accessToken?: string,
-    platformUrl?: string,
-    clientId?: string,
-    contextId: string,
-    user: string,
-    limit: number,
-    role: string,
-  ): Promise<object | null> {
+    membershipsUrl?: string | null,
+    accessToken?: string | null,
+    platformUrl?: string | null,
+    clientId?: string | null,
+    contextId?: string | null,
+    user?: string | null,
+    limit?: number,
+    role?: string | null,
+  ): Promise<MembersPage | null> {
 
     const contextToken = await this.#storage.getContextToken(`${contextId}${user}`);
     const productFamilyCode = contextToken?.toolPlatform?.product_family_code;
@@ -84,7 +92,7 @@ export class NamesAndRoleService {
         this.#aesKey,
       );
 
-      membershipsUrl = contextToken?.namesRoles?.context_memberships_url;
+      membershipsUrl = contextToken?.namesRoles?.context_memberships_url as string | undefined;
       if (!membershipsUrl) throw new Error("No context_memberships_url in context");
       membershipsUrl += `?limit=${limit || 20}`;
       role && (membershipsUrl += `&role=${role}`);
@@ -92,6 +100,8 @@ export class NamesAndRoleService {
       const rlid = contextToken?.namesRoles?.rlid || contextToken?.resource?.id;
       rlid && (membershipsUrl += `&rlid=${rlid}`);
     }
+
+    if (!membershipsUrl) throw new Error("No membershipsUrl supplied to loadUsers");
 
     console.debug(`Retrieving users from ${membershipsUrl}`);
 
@@ -108,14 +118,14 @@ export class NamesAndRoleService {
           const next: HTTPHeaderLinkEntry[] = headers.getByRel("next");
 
           const users = await r.json();
-          users.members.forEach(m => {
+          users.members.forEach((m: any) => {
 
             m.user_id = m.user_id.substring(m.user_id.lastIndexOf("/") + 1);
 
             const roles = new Set();
 
             // Remove the full namespace from the roles - nobody needs that.
-            m.roles.forEach(r => {
+            m.roles.forEach((r: string) => {
 
               const i = r.lastIndexOf("#");
               i !== -1 && roles.add(r.substring(i + 1));
@@ -153,6 +163,122 @@ export class NamesAndRoleService {
       });
   }
 
+  async getPageOfUsers(
+    clientId: string,
+    contextId: string,
+    startNum: number,
+    lengthNum: number,
+    filter?: UserFilter,
+  ): Promise<UserPage> {
+
+    return this.#storage.getPageOfUsers(clientId, contextId, startNum, lengthNum, filter);
+  }
+
+  async isMembersCacheBuilding(
+    clientId: string,
+    contextId: string
+  ): Promise<boolean> {
+
+    return await this.#storage.isMembersCaching(clientId, contextId);
+  }
+
+  async #persistMembers(
+    clientId: string,
+    contextId: string,
+    members: object[] = []
+  ): Promise<void> {
+
+    for (const m of members) await this.#storage.setUser(clientId, contextId, m);
+  }
+
+  async #primeMembersCache(
+    platformUrl: string,
+    clientId: string,
+    contextId: string,
+    userId: string,
+    limit: number,
+  ): Promise<void> {
+
+    if (await this.#storage.isMembersCaching(clientId, contextId)) {
+      // Another request is already filling the cache; wait until at least the first page is in.
+      return;
+    }
+
+    this.#storage.setMembersCaching(clientId, contextId);
+
+    console.debug(`Getting first page of members for clientId ${clientId} and contextId ${contextId} ...`);
+    const first = await this.loadUsers(null, null, platformUrl, clientId, contextId, userId, limit, null);
+    if (!first) return;
+    await this.#persistMembers(clientId, contextId, first.members);
+
+    if (!first.next) {
+      await this.#storage.invalidateTotals(clientId, contextId);
+      this.#storage.unsetMembersCaching(clientId, contextId);
+      return;
+    }
+
+    const drain = (async () => {
+      let pageUrl: string | undefined = first.next;
+      let accessToken: string | undefined = first.accessToken;
+      let page = 2;
+      while (pageUrl) {
+        const result = await this.loadUsers(pageUrl, accessToken, null, null, null, null, limit, null);
+        if (!result) break;
+        await this.#persistMembers(clientId, contextId, result.members);
+        console.debug(`Drained members page ${page} for clientId ${clientId} and contextId ${contextId}`);
+        pageUrl = result.next;
+        accessToken = result.accessToken;
+        page++;
+      }
+      //await this.#storage.invalidateTotals(clientId, contextId);
+      await this.#storage.countUsers(clientId, contextId, "all", "all");
+    })().finally(() => this.#storage.unsetMembersCaching(clientId, contextId));
+  }
+
+  async ensureMembersCached(
+    lti: DenoLTI,
+    storage: Storage,
+    platformUrl: string,
+    clientId: string,
+    contextId: string,
+    userId: string,
+    limit: number,
+  ): Promise<void> {
+
+    if (await this.#storage.hasAnyUsers(clientId, contextId)) {
+      console.debug(`Users already cached for clientId ${clientId}, contextId ${contextId}`);
+      return;
+    }
+
+    await this.#primeMembersCache(platformUrl, clientId, contextId, userId, limit);
+  }
+
+  async countUsers(
+    clientId: string,
+    contextId: string,
+    groupId: string,
+    role: string,
+  ): Promise<Record<string, string>> {
+
+    return (await this.#storage.countUsers(clientId, contextId, groupId, role)).value;
+  }
+
+  async getGroups(
+    clientId: string,
+    contextId: string,
+  ): Promise<Array<Record<string, string>>> {
+
+    return [];
+  }
+
+  async getCachedTotals(
+    clientId: string,
+    contextId: string,
+  ): Promise<Record<string, string>> {
+
+    return await this.#storage.getCachedTotals(clientId, contextId, "all", "all");
+  }
+
   /**
    * Harvest enrichment fields out of a member's custom claim and onto the member.
    *
@@ -170,7 +296,7 @@ export class NamesAndRoleService {
 
     if (!custom) return;
 
-    for (const field: EnrichmentField of ENRICHMENT_FIELDS) {
+    for (const field of ENRICHMENT_FIELDS) {
       if (member[field.memberProp]) continue; // native value wins
       const value = custom[field.param];
       if (typeof value !== "string") continue;
