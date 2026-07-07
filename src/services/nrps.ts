@@ -54,20 +54,16 @@ export class NamesAndRoleService {
    *                 context_memberships_url.
    * @param {string} user Used to identify a registered platform and allow us to get the
    *                 context_memberships_url.
-   * @param {string} limit Number of members to retrieve at a time
-   * @param {string} role The role of the members to retrieve
    *
    * @return {object} A js object with the members and possibly the url for the next page of members
    */
-  async loadUsers(
+  async #loadUsers(
     membershipsUrl?: string | null,
     accessToken?: string | null,
     platformUrl?: string | null,
     clientId?: string | null,
     contextId?: string | null,
     user?: string | null,
-    limit?: number,
-    role?: string | null,
   ): Promise<MembersPage | null> {
 
     const contextToken = await this.#storage.getContextToken(`${contextId}${user}`);
@@ -94,11 +90,9 @@ export class NamesAndRoleService {
 
       membershipsUrl = contextToken?.namesRoles?.context_memberships_url as string | undefined;
       if (!membershipsUrl) throw new Error("No context_memberships_url in context");
-      membershipsUrl += `?limit=${limit || 20}`;
-      role && (membershipsUrl += `&role=${role}`);
 
       const rlid = contextToken?.namesRoles?.rlid || contextToken?.resource?.id;
-      rlid && (membershipsUrl += `&rlid=${rlid}`);
+      rlid && (membershipsUrl += `?rlid=${rlid}`);
     }
 
     if (!membershipsUrl) throw new Error("No membershipsUrl supplied to loadUsers");
@@ -118,7 +112,7 @@ export class NamesAndRoleService {
           const next: HTTPHeaderLinkEntry[] = headers.getByRel("next");
 
           const users = await r.json();
-          users.members.forEach((m: any) => {
+          users.members.forEach(m => {
 
             m.user_id = m.user_id.substring(m.user_id.lastIndexOf("/") + 1);
 
@@ -196,7 +190,6 @@ export class NamesAndRoleService {
     clientId: string,
     contextId: string,
     userId: string,
-    limit: number,
   ): Promise<void> {
 
     if (await this.#storage.isMembersCaching(clientId, contextId)) {
@@ -207,7 +200,7 @@ export class NamesAndRoleService {
     this.#storage.setMembersCaching(clientId, contextId);
 
     console.debug(`Getting first page of members for clientId ${clientId} and contextId ${contextId} ...`);
-    const first = await this.loadUsers(null, null, platformUrl, clientId, contextId, userId, limit, null);
+    const first = await this.#loadUsers(null, null, platformUrl, clientId, contextId, userId);
     if (!first) return;
     await this.#persistMembers(clientId, contextId, first.members);
 
@@ -222,7 +215,7 @@ export class NamesAndRoleService {
       let accessToken: string | undefined = first.accessToken;
       let page = 2;
       while (pageUrl) {
-        const result = await this.loadUsers(pageUrl, accessToken, null, null, null, null, limit, null);
+        const result = await this.#loadUsers(pageUrl, accessToken, null, null, null, null);
         if (!result) break;
         await this.#persistMembers(clientId, contextId, result.members);
         console.debug(`Drained members page ${page} for clientId ${clientId} and contextId ${contextId}`);
@@ -236,13 +229,10 @@ export class NamesAndRoleService {
   }
 
   async ensureMembersCached(
-    lti: DenoLTI,
-    storage: Storage,
     platformUrl: string,
     clientId: string,
     contextId: string,
     userId: string,
-    limit: number,
   ): Promise<void> {
 
     if (await this.#storage.hasAnyUsers(clientId, contextId)) {
@@ -250,7 +240,7 @@ export class NamesAndRoleService {
       return;
     }
 
-    await this.#primeMembersCache(platformUrl, clientId, contextId, userId, limit);
+    await this.#primeMembersCache(platformUrl, clientId, contextId, userId);
   }
 
   async countUsers(

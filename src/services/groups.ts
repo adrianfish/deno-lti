@@ -39,14 +39,13 @@ export class GroupsService {
    *
    * @return {object} A js object with the groups
    */
-  async loadGroups(
+  async #loadGroups(
     groupsUrl?: string | null,
     accessToken?: string | null,
     platformUrl?: string | null,
     clientId?: string | null,
     contextId?: string,
     user?: string,
-    limit?: number,
   ): Promise<object | null> {
 
     const contextToken = await this.#storage.getContextToken(`${contextId}${user}`);
@@ -66,9 +65,6 @@ export class GroupsService {
         }
       }
       groupsUrl += `?limit=${limit || 20}`;
-
-      console.log(productFamilyCode);
-      console.log(platform.accesstokenEndpoint);
 
       accessToken = await requestAccessToken(
         this.#ltiService.toolDomain,
@@ -113,5 +109,69 @@ export class GroupsService {
           return {};
         }
       });
+  }
+
+  async #persistGroups(
+    clientId: string,
+    contextId: string,
+    groups: object[] = []
+  ): Promise<void> {
+
+    for (const m of groups) await this.#storage.setGroup(clientId, contextId, m);
+  }
+
+  async #primeGroupsCache(
+    platformUrl: string,
+    clientId: string,
+    contextId: string,
+    userId: string,
+  ): Promise<void> {
+
+    if (await this.#storage.isGroupsCaching(clientId, contextId)) {
+      // Another request is already filling the cache; wait until at least the first page is in.
+      return;
+    }
+
+    this.#storage.setGroupsCaching(clientId, contextId);
+
+    console.debug(`Getting first page of members for clientId ${clientId} and contextId ${contextId} ...`);
+    const first = await this.#loadGroups(null, null, platformUrl, clientId, contextId, userId);
+    if (!first) return;
+    await this.#persistGroups(clientId, contextId, first.members);
+
+    if (!first.next) {
+      this.#storage.unsetGroupsCaching(clientId, contextId);
+      return;
+    }
+
+    const drain = (async () => {
+      let pageUrl: string | undefined = first.next;
+      let accessToken: string | undefined = first.accessToken;
+      let page = 2;
+      while (pageUrl) {
+        const result = await this.#loadGroups(pageUrl, accessToken, null, null, null, null);
+        if (!result) break;
+        await this.#persistGroups(clientId, contextId, result.members);
+        console.debug(`Drained groups page ${page} for clientId ${clientId} and contextId ${contextId}`);
+        pageUrl = result.next;
+        accessToken = result.accessToken;
+        page++;
+      }
+    })().finally(() => this.#storage.unsetGroupsCaching(clientId, contextId));
+  }
+
+  async ensureGroupsCached(
+    platformUrl: string,
+    clientId: string,
+    contextId: string,
+    userId: string,
+  ): Promise<void> {
+
+    if (await this.#storage.hasAnyGroups(clientId, contextId)) {
+      console.debug(`Groups already cached for clientId ${clientId}, contextId ${contextId}`);
+      return;
+    }
+
+    await this.#primeGroupsCache(platformUrl, clientId, contextId, userId);
   }
 }

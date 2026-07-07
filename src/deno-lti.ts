@@ -22,6 +22,7 @@ export class DenoLTI {
   #app = new Hono();
   #storage!: Storage;
   #nrps!: NamesAndRoleService;
+  #groups!: GroupsService;
   #ltiService!: LTIService;
   #secret!: string;
   #clientName!: string;
@@ -89,7 +90,7 @@ export class DenoLTI {
     }
 
     if (options.services?.includes(GROUPS)) {
-      this.groups = new GroupsService(this.#storage, this.#aesKey, this.#ltiService);
+      this.#groups = new GroupsService(this.#storage, this.#aesKey, this.#ltiService);
     }
 
     this.#buildRoutes();
@@ -120,18 +121,14 @@ export class DenoLTI {
     clientId: string,
     contextId: string,
     userId: string,
-    limit: number,
   ): Promise<void> {
 
     if (this.#options.services?.includes(ROSTER)) {
       await this.#nrps.ensureMembersCached(
-        this,
-        this.#storage,
         platformUrl,
         clientId,
         contextId,
         userId,
-        limit,
       );
     }
   }
@@ -148,13 +145,30 @@ export class DenoLTI {
     return false;
   }
 
+  async ensureGroupsCached(
+    platformUrl: string,
+    clientId: string,
+    contextId: string,
+    userId: string,
+  ): Promise<void> {
+
+    if (this.#options.services?.includes(GROUPS)) {
+      await this.#groups.ensureGroupsCached(
+        platformUrl,
+        clientId,
+        contextId,
+        userId,
+      );
+    }
+  }
+
   async getGroups(
     clientId: string,
     contextId: string,
   ): Promise<Array<Record<string, string>> | null> {
 
     if (this.#options.services?.includes(ROSTER)) {
-      return this.#nrps.getGroups(clientId, contextId);
+      return this.#groups.getGroups(clientId, contextId);
     }
 
     return null;
@@ -197,7 +211,7 @@ export class DenoLTI {
   ): Promise<any> {
 
     if (this.#options.services?.includes(GROUPS)) {
-      return this.groups.loadGroups(groupsUrl, accessToken, platformUrl, clientId, contextId, user, limit);
+      return this.#groups.loadGroups(groupsUrl, accessToken, platformUrl, clientId, contextId, user, limit);
     }
 
     return null;

@@ -194,19 +194,23 @@ export class DenoKVStorage implements Storage {
   }
 
   async isMembersCaching(clientId: string, contextId: string): Promise<boolean> {
-    return !!(await this.#kv.get([ "caching", clientId, contextId ])).value;
+    return !!(await this.#kv.get([ "members-caching", clientId, contextId ])).value;
   }
 
   async setMembersCaching(clientId: string, contextId: string): Promise<boolean> {
-    return (await this.#kv.set([ "caching", clientId, contextId ], true)).ok;
+    return (await this.#kv.set([ "members-caching", clientId, contextId ], true)).ok;
   }
 
   async unsetMembersCaching(clientId: string, contextId: string): Promise<void> {
-    return await this.#kv.delete([ "caching", clientId, contextId ]);
+    return await this.#kv.delete([ "members-caching", clientId, contextId ]);
   }
 
   #membersPrefix(clientId: string, contextId: string): Deno.KvKey {
     return [ "members", clientId, contextId ];
+  }
+
+  #groupsPrefix(clientId: string, contextId: string): Deno.KvKey {
+    return [ "groups", clientId, contextId ];
   }
 
   async setUser(clientId: string, contextId: string, user: any): Promise<boolean> {
@@ -325,6 +329,36 @@ export class DenoKVStorage implements Storage {
     }
 
     return totals;
+  }
+
+  async hasAnyGroups(clientId: string, contextId: string): Promise<boolean> {
+
+    // Try and get one user
+    const iter = this.#kv.list({ prefix: this.#groupsPrefix(clientId, contextId) }, { limit: 1 });
+    for await (const _ of iter) return true;
+    return false;
+  }
+
+  async isGroupsCaching(clientId: string, contextId: string): Promise<boolean> {
+    return !!(await this.#kv.get([ "groups-caching", clientId, contextId ])).value;
+  }
+
+  async setGroupsCaching(clientId: string, contextId: string): Promise<boolean> {
+    return (await this.#kv.set([ "groups-caching", clientId, contextId ], true)).ok;
+  }
+
+  async unsetGroupsCaching(clientId: string, contextId: string): Promise<void> {
+    return await this.#kv.delete([ "groups-caching", clientId, contextId ]);
+  }
+
+  async setGroup(clientId: string, contextId: string, group: object): Promise<boolean> {
+
+    let id = group.group_id;
+    const index = id.lastIndexOf("/");
+    if (index !== -1) id = id.substring(index + 1);
+
+    const expireIn: number = 15 * 60 * 1000;
+    return (await this.#kv.set([ ...this.#groupsPrefix(clientId, contextId), id ], group, { expireIn })).ok;
   }
 
   close(): void {
