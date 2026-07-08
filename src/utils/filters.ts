@@ -1,4 +1,4 @@
-export function buildFilter(role?: string, groupId?: string, search?: string): UserFilter | undefined {
+export function buildFilter(role?: string, groupId?: string, search?: string) {
 
   const filterByRole = role && role !== "all";
   const filterByGroup = groupId && groupId !== "all";

@@ -1,4 +1,3 @@
-import { buildFilter } from "../utils/filters.ts";
 import type { Storage } from "./storage.ts";
 import type { OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
@@ -30,7 +29,6 @@ export class DenoKVStorage implements Storage {
   static async open(kv?: Deno.Kv, path?: string): Promise<DenoKVStorage> {
 
     if (kv) return new DenoKVStorage(kv);
-    //const newKv = await Deno.openKv(path);
     return new DenoKVStorage(await Deno.openKv(path));
   }
 
@@ -182,7 +180,7 @@ export class DenoKVStorage implements Storage {
     clientId: string,
     requestedScopes: string,
   ): Promise<StoredAccessToken | null> {
-    const entry = await this.#kv.get<StoredAccessToken>([
+    const entry = await this.#kv.get([
       "accesstoken",
       platformUrl,
       clientId,
@@ -251,7 +249,7 @@ export class DenoKVStorage implements Storage {
     contextId: string,
     start: number,
     length: number,
-    filter?: UserFilter,
+    filter?: (object) => boolean,
   ): Promise<UserPage> {
 
     const prefix = this.#membersPrefix(clientId, contextId);

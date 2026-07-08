@@ -2,11 +2,13 @@
  * Course Groups — LTI 1.3
  */
 
-import type { Storage } from "../storage/storage.ts";
-import type { LTIToken } from "../types.ts";
-import type { LTIService } from "./lti-service.ts";
 import { HTTPHeaderLink, HTTPHeaderLinkEntry } from "@hugoalh/http-header-link";
 import { requestAccessToken } from "./oauth.ts";
+
+import type { Storage } from "../storage/storage.ts";
+import type { Group, Platform } from "../types.ts";
+import type { LTIService } from "./lti-service.ts";
+import type { StoredContextToken } from "../types.ts";
 
 export class GroupsService {
 
@@ -47,11 +49,11 @@ export class GroupsService {
     user?: string,
   ): Promise<object | null> {
 
-    const contextToken = await this.#storage.getContextToken(`${contextId}${user}`);
+    const contextToken: StoredContextToken = await this.#storage.getContextToken(`${contextId}${user}`);
     const productFamilyCode = contextToken?.toolPlatform?.product_family_code;
 
     if (!accessToken && !groupsUrl && platformUrl && clientId) {
-      const platform = await this.#ltiService.getPlatform(platformUrl, clientId);
+      const platform: Platform = await this.#ltiService.getPlatform(platformUrl, clientId);
       if (!platform) return null;
 
       groupsUrl = contextToken?.groups?.context_groups_url;
@@ -112,10 +114,10 @@ export class GroupsService {
   async #persistGroups(
     clientId: string,
     contextId: string,
-    groups: object[] = []
+    groups: Array<Group> = [],
   ): Promise<void> {
 
-    for (const g of groups) await this.#storage.setGroup(clientId, contextId, g);
+    for (const g: Group of groups) await this.#storage.setGroup(clientId, contextId, g);
   }
 
   async #primeGroupsCache(
@@ -172,7 +174,7 @@ export class GroupsService {
     await this.#primeGroupsCache(platformUrl, clientId, contextId, userId);
   }
 
-  async getGroups(clientId: string, contextId: string): Promise<Array<object>> {
+  async getGroups(clientId: string, contextId: string): Promise<Array<Group>> {
 
     return await this.#storage.getGroups(clientId, contextId);
   }

@@ -13,6 +13,7 @@ import { GroupsService } from "./services/groups.ts";
 import { LTIService } from "./services/lti-service.ts";
 import { createDeepLinkingForm, createDeepLinkingMessage } from "./services/deep-linking.ts";
 import { deriveAesKey } from "./crypto.ts";
+
 import type { MiddlewareHandler } from "hono";
 import type { Storage } from "./storage/storage.ts";
 import type { ErrorHandler, LTIHandler, ToolOptions } from "./types.ts";
@@ -110,7 +111,7 @@ export class DenoLTI {
     contextId: string,
     startNum: number,
     lengthNum: number,
-    filter?: UserFilter,
+    filter?: (object) => boolean,
   ): Promise<UserPage> {
 
     return this.#nrps.getPageOfUsers(clientId, contextId, startNum, lengthNum, filter);

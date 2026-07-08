@@ -9,7 +9,7 @@ import { ENRICHMENT_FIELDS } from "./platform/enrichment-fields.ts";
 
 import type { DenoLTI } from "../deno-lti.ts";
 import type { Storage } from "../storage/storage.ts";
-import type { LTIToken } from "../types.ts";
+import type { Platform, StoredContextToken } from "../types.ts";
 import type { LTIService } from "./lti-service.ts";
 
 /** A page of NRPS members, plus the cursor/token for the next page (if any). */
@@ -17,7 +17,6 @@ interface MembersPage {
   members: any[];
   next?: string;
   accessToken?: string;
-  [key: string]: unknown;
 }
 
 export class NamesAndRoleService {
@@ -66,10 +65,10 @@ export class NamesAndRoleService {
     user?: string | null,
   ): Promise<MembersPage | null> {
 
-    const contextToken = await this.#storage.getContextToken(`${contextId}${user}`);
+    const contextToken: StoredContextToken = await this.#storage.getContextToken(`${contextId}${user}`);
     const productFamilyCode = contextToken?.toolPlatform?.product_family_code;
     if (!accessToken && !membershipsUrl && platformUrl && clientId) {
-      const platform = await this.#ltiService.getPlatform(platformUrl, clientId);
+      const platform: Platform = await this.#ltiService.getPlatform(platformUrl, clientId);
 
       if (!platform) return null;
 
@@ -162,7 +161,7 @@ export class NamesAndRoleService {
     contextId: string,
     startNum: number,
     lengthNum: number,
-    filter?: UserFilter,
+    filter?: (object) => boolean,
   ): Promise<UserPage> {
 
     return this.#storage.getPageOfUsers(clientId, contextId, startNum, lengthNum, filter);

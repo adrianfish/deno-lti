@@ -161,3 +161,9 @@ export interface ContentItem {
   type: string;
   [key: string]: unknown;
 }
+
+export interface Group {
+  id: string;
+  name: string;
+  tag: string;
+}

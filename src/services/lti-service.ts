@@ -33,6 +33,7 @@ export class LTIService {
   }
 
   async getPlatform(url: string, clientId?: string): Promise<Platform | null> {
+
     if (clientId) return await this.#storage.getPlatform(url, clientId);
     const platforms: Platform[] = await this.#storage.getPlatformsByUrl(url);
     if (platforms.length) return platforms[0];

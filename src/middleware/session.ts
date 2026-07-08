@@ -54,6 +54,7 @@ function extractLtik(c: Context): string | undefined {
 // ---------------------------------------------------------------------------
 
 export function createSessionMiddleware(opts: SessionMiddlewareOptions): MiddlewareHandler {
+
   const {
     lti,
     storage,
@@ -252,6 +253,8 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       });
       */
 
+      // Kick off member and group caching
+      lti.ensureMembersCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
       lti.ensureGroupsCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
 
       // Redirect to target with ltik
