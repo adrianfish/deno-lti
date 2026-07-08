@@ -35,7 +35,6 @@ export class GroupsService {
    * @param {string} clientId Used to identify a registered platform
    * @param {string} contextId Used to retrieve the context token
    * @param {string} user Used to retrieve the context token
-   * @param {string} limit Number of groups to retrieve at a time
    *
    * @return {object} A js object with the groups
    */
@@ -64,7 +63,6 @@ export class GroupsService {
         } else {
         }
       }
-      groupsUrl += `?limit=${limit || 20}`;
 
       accessToken = await requestAccessToken(
         this.#ltiService.toolDomain,
@@ -95,14 +93,14 @@ export class GroupsService {
           const headers: HTTPHeaderLink = HTTPHeaderLink.parse(r.headers);
           const next: HTTPHeaderLinkEntry[] = headers.getByRel("next");
 
-          const groups = await r.json();
+          const groupsData = await r.json();
 
           if (next.length) {
-            groups.next = next.length ? next[0][0] : undefined;
-            groups.accessToken = accessToken;
+            groupsData.next = next.length ? next[0][0] : undefined;
+            groupsData.accessToken = accessToken;
           }
 
-          return groups;
+          return groupsData;
         } else {
           console.error(`Network error while getting groups from ${groupsUrl}: ${r.status}`);
           console.error(await r.json());
@@ -117,7 +115,7 @@ export class GroupsService {
     groups: object[] = []
   ): Promise<void> {
 
-    for (const m of groups) await this.#storage.setGroup(clientId, contextId, m);
+    for (const g of groups) await this.#storage.setGroup(clientId, contextId, g);
   }
 
   async #primeGroupsCache(
@@ -137,27 +135,26 @@ export class GroupsService {
     console.debug(`Getting first page of members for clientId ${clientId} and contextId ${contextId} ...`);
     const first = await this.#loadGroups(null, null, platformUrl, clientId, contextId, userId);
     if (!first) return;
-    await this.#persistGroups(clientId, contextId, first.members);
+    await this.#persistGroups(clientId, contextId, first.groups);
 
     if (!first.next) {
       this.#storage.unsetGroupsCaching(clientId, contextId);
       return;
     }
 
-    const drain = (async () => {
-      let pageUrl: string | undefined = first.next;
-      let accessToken: string | undefined = first.accessToken;
-      let page = 2;
-      while (pageUrl) {
-        const result = await this.#loadGroups(pageUrl, accessToken, null, null, null, null);
-        if (!result) break;
-        await this.#persistGroups(clientId, contextId, result.members);
-        console.debug(`Drained groups page ${page} for clientId ${clientId} and contextId ${contextId}`);
-        pageUrl = result.next;
-        accessToken = result.accessToken;
-        page++;
-      }
-    })().finally(() => this.#storage.unsetGroupsCaching(clientId, contextId));
+    let pageUrl: string | undefined = first.next;
+    let accessToken: string | undefined = first.accessToken;
+    let page = 2;
+    while (pageUrl) {
+      const result = await this.#loadGroups(pageUrl, accessToken, null, null, null, null);
+      if (!result) break;
+      await this.#persistGroups(clientId, contextId, result.groups);
+      console.debug(`Drained groups page ${page} for clientId ${clientId} and contextId ${contextId}`);
+      pageUrl = result.next;
+      accessToken = result.accessToken;
+      page++;
+    }
+    this.#storage.unsetGroupsCaching(clientId, contextId);
   }
 
   async ensureGroupsCached(
@@ -173,5 +170,10 @@ export class GroupsService {
     }
 
     await this.#primeGroupsCache(platformUrl, clientId, contextId, userId);
+  }
+
+  async getGroups(clientId: string, contextId: string): Promise<Array<object>> {
+
+    return await this.#storage.getGroups(clientId, contextId);
   }
 }

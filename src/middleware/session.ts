@@ -252,6 +252,8 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       });
       */
 
+      lti.ensureGroupsCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
+
       // Redirect to target with ltik
       const targetUri = contextToken.targetLinkUri || "/";
       const redirectUrl = new URL(

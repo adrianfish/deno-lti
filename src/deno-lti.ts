@@ -167,7 +167,7 @@ export class DenoLTI {
     contextId: string,
   ): Promise<Array<Record<string, string>> | null> {
 
-    if (this.#options.services?.includes(ROSTER)) {
+    if (this.#options.services?.includes(GROUPS)) {
       return this.#groups.getGroups(clientId, contextId);
     }
 
@@ -200,6 +200,7 @@ export class DenoLTI {
     return null;
   }
 
+  /*
   async loadGroups(
     groupsUrl?: string | null,
     accessToken?: string | null,
@@ -216,6 +217,7 @@ export class DenoLTI {
 
     return null;
   }
+  */
 
   get DeepLinking() {
     return {

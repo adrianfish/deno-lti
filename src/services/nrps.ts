@@ -205,8 +205,8 @@ export class NamesAndRoleService {
     await this.#persistMembers(clientId, contextId, first.members);
 
     if (!first.next) {
-      await this.#storage.invalidateTotals(clientId, contextId);
       this.#storage.unsetMembersCaching(clientId, contextId);
+      await this.#storage.countUsers(clientId, contextId);
       return;
     }
 
@@ -214,6 +214,7 @@ export class NamesAndRoleService {
       let pageUrl: string | undefined = first.next;
       let accessToken: string | undefined = first.accessToken;
       let page = 2;
+      console.log(pageUrl);
       while (pageUrl) {
         const result = await this.#loadUsers(pageUrl, accessToken, null, null, null, null);
         if (!result) break;
@@ -223,8 +224,7 @@ export class NamesAndRoleService {
         accessToken = result.accessToken;
         page++;
       }
-      //await this.#storage.invalidateTotals(clientId, contextId);
-      await this.#storage.countUsers(clientId, contextId, "all", "all");
+      await this.#storage.countUsers(clientId, contextId);
     })().finally(() => this.#storage.unsetMembersCaching(clientId, contextId));
   }
 
@@ -246,11 +246,9 @@ export class NamesAndRoleService {
   async countUsers(
     clientId: string,
     contextId: string,
-    groupId: string,
-    role: string,
   ): Promise<Record<string, string>> {
 
-    return (await this.#storage.countUsers(clientId, contextId, groupId, role)).value;
+    return (await this.#storage.countUsers(clientId, contextId)).value;
   }
 
   async getGroups(
@@ -266,7 +264,7 @@ export class NamesAndRoleService {
     contextId: string,
   ): Promise<Record<string, string>> {
 
-    return await this.#storage.getCachedTotals(clientId, contextId, "all", "all");
+    return await this.#storage.getCachedTotals(clientId, contextId);
   }
 
   /**

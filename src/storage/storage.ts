@@ -1,5 +1,11 @@
 import type { OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
+export interface UserPage {
+  users: object[];
+  recordsTotal: number;
+  recordsFiltered: number;
+}
+
 /**
  * Storage — the single interface the rest of the library talks to.
  *
