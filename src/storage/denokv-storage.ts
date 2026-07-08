@@ -223,7 +223,7 @@ export class DenoKVStorage implements Storage {
     return await this.#kv.delete(this.#membersCachingKey(clientId, contextId));
   }
 
-  async setUser(clientId: string, contextId: string, user: any): Promise<boolean> {
+  async setMember(clientId: string, contextId: string, user: any): Promise<boolean> {
 
     let id = user.user_id;
     const index = id.lastIndexOf("/");
@@ -236,7 +236,7 @@ export class DenoKVStorage implements Storage {
     return (await this.#kv.set([ ...this.#membersPrefix(clientId, contextId), id ], user, { expireIn })).ok;
   }
 
-  async hasAnyUsers(clientId: string, contextId: string): Promise<boolean> {
+  async hasAnyMembers(clientId: string, contextId: string): Promise<boolean> {
 
     // Try and get one user
     const iter = this.#kv.list({ prefix: this.#membersPrefix(clientId, contextId) }, { limit: 1 });
@@ -244,13 +244,13 @@ export class DenoKVStorage implements Storage {
     return false;
   }
 
-  async getPageOfUsers(
+  async getPageOfMembers(
     clientId: string,
     contextId: string,
     start: number,
     length: number,
     filter?: (object) => boolean,
-  ): Promise<UserPage> {
+  ): Promise<MemberPage> {
 
     const prefix = this.#membersPrefix(clientId, contextId);
     const users = [];
@@ -278,7 +278,7 @@ export class DenoKVStorage implements Storage {
     return { users, recordsTotal, recordsFiltered };
   }
 
-  async getAllUsers(clientId: string, contextId: string): Promise<object[]> {
+  async getAllMembers(clientId: string, contextId: string): Promise<object[]> {
 
     const all: object[] = [];
     let cursor: string | undefined;
@@ -299,7 +299,7 @@ export class DenoKVStorage implements Storage {
     return (await this.#kv.get(this.#totalsKey(clientId, contextId))).value;
   }
 
-  async countUsers(clientId: string, contextId: string): Promise<Record<string, number>> {
+  async countMembers(clientId: string, contextId: string): Promise<Record<string, number>> {
 
     let totals = await this.getCachedTotals(clientId, contextId);
 
@@ -307,7 +307,7 @@ export class DenoKVStorage implements Storage {
       console.debug(`Totals for clientId ${clientId} and contextId ${contextId} not cached. Building ...`);
 
       totals = {};
-      const all = await this.getAllUsers(clientId, contextId);
+      const all = await this.getAllMembers(clientId, contextId);
       for (const m of all) {
         m.roles.forEach(r => {
           totals[r] = Object.hasOwn(totals, r) ? totals[r] + 1 : 1;

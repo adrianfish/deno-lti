@@ -15,7 +15,7 @@ import { createDeepLinkingForm, createDeepLinkingMessage } from "./services/deep
 import { deriveAesKey } from "./crypto.ts";
 
 import type { MiddlewareHandler } from "hono";
-import type { Storage } from "./storage/storage.ts";
+import type { MemberPage, Storage } from "./storage/storage.ts";
 import type { ErrorHandler, LTIHandler, ToolOptions } from "./types.ts";
 
 export class DenoLTI {
@@ -106,15 +106,15 @@ export class DenoLTI {
   grade!: GradeService;
   groups!: GroupsService;
 
-  async getPageOfUsers(
+  async getPageOfMembers(
     clientId: string,
     contextId: string,
     startNum: number,
     lengthNum: number,
     filter?: (object) => boolean,
-  ): Promise<UserPage> {
+  ): Promise<MemberPage> {
 
-    return this.#nrps.getPageOfUsers(clientId, contextId, startNum, lengthNum, filter);
+    return this.#nrps.getPageOfMembers(clientId, contextId, startNum, lengthNum, filter);
   }
 
   async ensureMembersCached(
@@ -187,7 +187,7 @@ export class DenoLTI {
     return null;
   }
 
-  async countUsers(
+  async countMembers(
     clientId: string,
     contextId: string,
     groupId: string,
@@ -195,30 +195,11 @@ export class DenoLTI {
   ): Promise<Record<string, string> | null> {
 
     if (this.#options.services?.includes(ROSTER)) {
-      return this.#nrps.countUsers(clientId, contextId, groupId, role);
+      return this.#nrps.countMembers(clientId, contextId, groupId, role);
     }
 
     return null;
   }
-
-  /*
-  async loadGroups(
-    groupsUrl?: string | null,
-    accessToken?: string | null,
-    platformUrl?: string | null,
-    clientId?: string | null,
-    contextId?: string,
-    user?: string,
-    limit?: number,
-  ): Promise<any> {
-
-    if (this.#options.services?.includes(GROUPS)) {
-      return this.#groups.loadGroups(groupsUrl, accessToken, platformUrl, clientId, contextId, user, limit);
-    }
-
-    return null;
-  }
-  */
 
   get DeepLinking() {
     return {

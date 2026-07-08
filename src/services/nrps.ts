@@ -37,7 +37,7 @@ export class NamesAndRoleService {
    * the membershipsUrl and accessToken set to null and the rest of the params set - is usually the
    * way the first page of results is requested. An NRPS implementation may well supply a url and
    * access token to get the next page, alongside the member objects. That url can be used with the
-   * token in further calls to loadUsers and in that case only membershipsUrl and accessToken will
+   * token in further calls to loadMembers and in that case only membershipsUrl and accessToken will
    * be supplied.
    *
    * @param {string} membershipsUrl The url of the results page to retrieve. This is returned by the
@@ -56,7 +56,7 @@ export class NamesAndRoleService {
    *
    * @return {object} A js object with the members and possibly the url for the next page of members
    */
-  async #loadUsers(
+  async #loadMembers(
     membershipsUrl?: string | null,
     accessToken?: string | null,
     platformUrl?: string | null,
@@ -94,7 +94,7 @@ export class NamesAndRoleService {
       rlid && (membershipsUrl += `?rlid=${rlid}`);
     }
 
-    if (!membershipsUrl) throw new Error("No membershipsUrl supplied to loadUsers");
+    if (!membershipsUrl) throw new Error("No membershipsUrl supplied to loadMembers");
 
     console.debug(`Retrieving users from ${membershipsUrl}`);
 
@@ -156,15 +156,15 @@ export class NamesAndRoleService {
       });
   }
 
-  async getPageOfUsers(
+  async getPageOfMembers(
     clientId: string,
     contextId: string,
     startNum: number,
     lengthNum: number,
     filter?: (object) => boolean,
-  ): Promise<UserPage> {
+  ): Promise<MembersPage> {
 
-    return this.#storage.getPageOfUsers(clientId, contextId, startNum, lengthNum, filter);
+    return this.#storage.getPageOfMembers(clientId, contextId, startNum, lengthNum, filter);
   }
 
   async isMembersCacheBuilding(
@@ -181,7 +181,7 @@ export class NamesAndRoleService {
     members: object[] = []
   ): Promise<void> {
 
-    for (const m of members) await this.#storage.setUser(clientId, contextId, m);
+    for (const m of members) await this.#storage.setMember(clientId, contextId, m);
   }
 
   async #primeMembersCache(
@@ -199,13 +199,13 @@ export class NamesAndRoleService {
     this.#storage.setMembersCaching(clientId, contextId);
 
     console.debug(`Getting first page of members for clientId ${clientId} and contextId ${contextId} ...`);
-    const first = await this.#loadUsers(null, null, platformUrl, clientId, contextId, userId);
+    const first = await this.#loadMembers(null, null, platformUrl, clientId, contextId, userId);
     if (!first) return;
     await this.#persistMembers(clientId, contextId, first.members);
 
     if (!first.next) {
       this.#storage.unsetMembersCaching(clientId, contextId);
-      await this.#storage.countUsers(clientId, contextId);
+      await this.#storage.countMembers(clientId, contextId);
       return;
     }
 
@@ -215,7 +215,7 @@ export class NamesAndRoleService {
       let page = 2;
       console.log(pageUrl);
       while (pageUrl) {
-        const result = await this.#loadUsers(pageUrl, accessToken, null, null, null, null);
+        const result = await this.#loadMembers(pageUrl, accessToken, null, null, null, null);
         if (!result) break;
         await this.#persistMembers(clientId, contextId, result.members);
         console.debug(`Drained members page ${page} for clientId ${clientId} and contextId ${contextId}`);
@@ -223,7 +223,7 @@ export class NamesAndRoleService {
         accessToken = result.accessToken;
         page++;
       }
-      await this.#storage.countUsers(clientId, contextId);
+      await this.#storage.countMembers(clientId, contextId);
     })().finally(() => this.#storage.unsetMembersCaching(clientId, contextId));
   }
 
@@ -234,20 +234,20 @@ export class NamesAndRoleService {
     userId: string,
   ): Promise<void> {
 
-    if (await this.#storage.hasAnyUsers(clientId, contextId)) {
-      console.debug(`Users already cached for clientId ${clientId}, contextId ${contextId}`);
+    if (await this.#storage.hasAnyMembers(clientId, contextId)) {
+      console.debug(`Members already cached for clientId ${clientId}, contextId ${contextId}`);
       return;
     }
 
     await this.#primeMembersCache(platformUrl, clientId, contextId, userId);
   }
 
-  async countUsers(
+  async countMembers(
     clientId: string,
     contextId: string,
   ): Promise<Record<string, string>> {
 
-    return (await this.#storage.countUsers(clientId, contextId)).value;
+    return (await this.#storage.countMembers(clientId, contextId)).value;
   }
 
   async getGroups(

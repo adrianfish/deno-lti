@@ -1,7 +1,7 @@
 import type { OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
-export interface UserPage {
-  users: object[];
+export interface MemberPage {
+  members: object[];
   recordsTotal: number;
   recordsFiltered: number;
 }
@@ -106,10 +106,10 @@ export interface Storage {
   unsetMembersCaching(clientId: string, contextId: string): Promise<void>;
 
   /** Stores a single cached member */
-  setUser(clientId: string, contextId: string, user: object): Promise<boolean>;
+  setMember(clientId: string, contextId: string, user: object): Promise<boolean>;
 
   /** True if any members are cached for this context */
-  hasAnyUsers(clientId: string, contextId: string): Promise<boolean>;
+  hasAnyMembers(clientId: string, contextId: string): Promise<boolean>;
 
   /** Drops any cached member-count totals for this context */
   invalidateTotals(clientId: string, contextId: string): Promise<void>;
