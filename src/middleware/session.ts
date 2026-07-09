@@ -254,6 +254,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       */
 
       // Kick off member and group caching
+      console.debug("Kicking off members and groups caching (if requested) from launch ...");
       lti.ensureMembersCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
       lti.ensureGroupsCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
 

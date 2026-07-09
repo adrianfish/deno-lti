@@ -253,7 +253,7 @@ export class DenoKVStorage implements Storage {
   ): Promise<MemberPage> {
 
     const prefix = this.#membersPrefix(clientId, contextId);
-    const users = [];
+    const members = [];
     let recordsTotal = 0;
     let recordsFiltered = 0;
     let cursor: string | undefined;
@@ -266,8 +266,8 @@ export class DenoKVStorage implements Storage {
         recordsTotal++;
         const user = entry.value;
         if (filter && !filter(user)) continue;
-        if (recordsFiltered >= start && users.length < length) {
-          users.push(user);
+        if (recordsFiltered >= start && members.length < length) {
+          members.push(user);
         }
         recordsFiltered++;
       }
@@ -275,7 +275,7 @@ export class DenoKVStorage implements Storage {
       if (!cursor || seenInChunk === 0) break;
     }
 
-    return { users, recordsTotal, recordsFiltered };
+    return { members, recordsTotal, recordsFiltered };
   }
 
   async getAllMembers(clientId: string, contextId: string): Promise<object[]> {
@@ -299,7 +299,7 @@ export class DenoKVStorage implements Storage {
     return (await this.#kv.get(this.#totalsKey(clientId, contextId))).value;
   }
 
-  async countMembers(clientId: string, contextId: string): Promise<Record<string, number>> {
+  async cacheTotals(clientId: string, contextId: string): Promise<Record<string, number>> {
 
     let totals = await this.getCachedTotals(clientId, contextId);
 

@@ -14,7 +14,7 @@ import type { LTIService } from "./lti-service.ts";
 
 /** A page of NRPS members, plus the cursor/token for the next page (if any). */
 interface MembersPage {
-  members: any[];
+  members: object[];
   next?: string;
   accessToken?: string;
 }
@@ -130,7 +130,7 @@ export class NamesAndRoleService {
             // message array under the custom claim. Harvest the configured
             // enrichment fields (pronouns, profile picture, …) onto the member.
             const custom = m.message?.[0]?.["https://purl.imsglobal.org/spec/lti/claim/custom"];
-            this.harvestCustom(m, custom);
+            this.#harvestCustom(m, custom);
 
             // Now delete the message property. Clients of this lib don't, or shouldn't need to know
             // about LTI specific stuff. Ideally, anyway :)
@@ -139,7 +139,7 @@ export class NamesAndRoleService {
             // Lift LMS-specific extension blocks (e.g. Sakai's sakai_ext) onto
             // the member top level. No-op for platforms without one, and a
             // no-op for any property that has graduated to LTI core.
-            this.liftExtensions(m, productFamilyCode);
+            this.#liftExtensions(m, productFamilyCode);
           });
 
           if (next.length) {
@@ -157,14 +157,17 @@ export class NamesAndRoleService {
   }
 
   async getPageOfMembers(
+    platformUrl: string,
     clientId: string,
     contextId: string,
-    startNum: number,
-    lengthNum: number,
+    userId: string,
+    start: number,
+    length: number,
     filter?: (object) => boolean,
   ): Promise<MembersPage> {
 
-    return this.#storage.getPageOfMembers(clientId, contextId, startNum, lengthNum, filter);
+    await this.ensureMembersCached(platformUrl, clientId, contextId, userId);
+    return this.#storage.getPageOfMembers(clientId, contextId, start, length, filter);
   }
 
   async isMembersCacheBuilding(
@@ -205,7 +208,7 @@ export class NamesAndRoleService {
 
     if (!first.next) {
       this.#storage.unsetMembersCaching(clientId, contextId);
-      await this.#storage.countMembers(clientId, contextId);
+      await this.#storage.cacheTotals(clientId, contextId);
       return;
     }
 
@@ -213,7 +216,6 @@ export class NamesAndRoleService {
       let pageUrl: string | undefined = first.next;
       let accessToken: string | undefined = first.accessToken;
       let page = 2;
-      console.log(pageUrl);
       while (pageUrl) {
         const result = await this.#loadMembers(pageUrl, accessToken, null, null, null, null);
         if (!result) break;
@@ -223,7 +225,7 @@ export class NamesAndRoleService {
         accessToken = result.accessToken;
         page++;
       }
-      await this.#storage.countMembers(clientId, contextId);
+      await this.#storage.cacheTotals(clientId, contextId);
     })().finally(() => this.#storage.unsetMembersCaching(clientId, contextId));
   }
 
@@ -240,22 +242,6 @@ export class NamesAndRoleService {
     }
 
     await this.#primeMembersCache(platformUrl, clientId, contextId, userId);
-  }
-
-  async countMembers(
-    clientId: string,
-    contextId: string,
-  ): Promise<Record<string, string>> {
-
-    return (await this.#storage.countMembers(clientId, contextId)).value;
-  }
-
-  async getGroups(
-    clientId: string,
-    contextId: string,
-  ): Promise<Array<Record<string, string>>> {
-
-    return [];
   }
 
   async getCachedTotals(
@@ -276,7 +262,7 @@ export class NamesAndRoleService {
    * @param member The NRPS member object to decorate (mutated in place).
    * @param custom The member's custom claim, e.g. `member.message[0][".../custom"]`.
    */
-  harvestCustom(
+  #harvestCustom(
     member: Record<string, unknown>,
     custom: Record<string, unknown> | undefined,
   ): void {
@@ -291,6 +277,7 @@ export class NamesAndRoleService {
       member[field.memberProp] = value;
     }
   }
+
   /**
    * Lift a platform's extension-block properties onto the member top level.
    *
@@ -301,7 +288,7 @@ export class NamesAndRoleService {
    * @param member The NRPS member object to decorate (mutated in place).
    * @param familyCode The platform's `product_family_code`, if known.
    */
-  liftExtensions(member: Record<string, unknown>, familyCode: string | undefined): void {
+  #liftExtensions(member: Record<string, unknown>, familyCode: string | undefined): void {
 
     if (!familyCode) return;
 

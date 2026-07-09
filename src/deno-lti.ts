@@ -107,14 +107,16 @@ export class DenoLTI {
   groups!: GroupsService;
 
   async getPageOfMembers(
+    platformUrl: string,
     clientId: string,
     contextId: string,
+    userId: string,
     startNum: number,
     lengthNum: number,
     filter?: (object) => boolean,
   ): Promise<MemberPage> {
 
-    return this.#nrps.getPageOfMembers(clientId, contextId, startNum, lengthNum, filter);
+    return this.#nrps.getPageOfMembers(platformUrl, clientId, contextId, userId, startNum, lengthNum, filter);
   }
 
   async ensureMembersCached(
@@ -182,20 +184,6 @@ export class DenoLTI {
 
     if (this.#options.services?.includes(ROSTER)) {
       return this.#nrps.getCachedTotals(clientId, contextId);
-    }
-
-    return null;
-  }
-
-  async countMembers(
-    clientId: string,
-    contextId: string,
-    groupId: string,
-    role: string,
-  ): Promise<Record<string, string> | null> {
-
-    if (this.#options.services?.includes(ROSTER)) {
-      return this.#nrps.countMembers(clientId, contextId, groupId, role);
     }
 
     return null;
