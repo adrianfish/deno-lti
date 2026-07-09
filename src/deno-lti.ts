@@ -16,6 +16,7 @@ import { deriveAesKey } from "./crypto.ts";
 
 import type { MiddlewareHandler } from "hono";
 import type { MemberPage, Storage } from "./storage/storage.ts";
+import type { MemberFilter } from "./services/nrps.ts";
 import type { ErrorHandler, LTIHandler, ToolOptions } from "./types.ts";
 
 export class DenoLTI {
@@ -113,7 +114,7 @@ export class DenoLTI {
     userId: string,
     startNum: number,
     lengthNum: number,
-    filter?: (object) => boolean,
+    filter?: MemberFilter,
   ): Promise<MemberPage> {
 
     return this.#nrps.getPageOfMembers(platformUrl, clientId, contextId, userId, startNum, lengthNum, filter);

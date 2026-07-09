@@ -1,24 +1,22 @@
-import type { Storage } from "./storage.ts";
 import type { OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
-const LIST_CHUNK = 200;
+/** A page of members plus the counts DataTables needs to render pagination. */
+export interface MemberPage {
+  members: Array<object>;
+  /** Total member records, ignoring any filter. */
+  recordsTotal: number;
+  /** Member records matching the active filter. */
+  recordsFiltered: number;
+}
 
-/**
- * DenoKVStorage — zero-dependency storage using Deno's built-in KV store.
- *
- * Key schema:
- *   ["platform", url, clientId]                → Platform
- *   ["platform_by_url", url, clientId]         → true  (index for list-by-url)
- *   ["key_public", kid]                        → encrypted public key string
- *   ["key_private", kid]                       → encrypted private key string
- *   ["idtoken", key]                           → StoredIdToken   (24h TTL)
- *   ["contexttoken", key]                      → StoredContextToken (24h TTL)
- *   ["nonce", nonce]                           → true  (10s TTL)
- *   ["state", state]                           → OidcStateData (10m TTL)
- *   ["accesstoken", platformUrl, clientId, scopes] → StoredAccessToken (1h TTL)
- *
- * Requires: --unstable-kv flag (or "unstable": ["kv"] in deno.json)
- */
+/** Cached per-group membership counts, plus the overall member total. */
+export interface GroupTotals {
+  /** Total number of member records in the context. */
+  total: number;
+  /** Member count keyed by group id. */
+  byGroup: Record<string, number>;
+}
+
 export interface Storage {
 
   savePlatform(platform: Platform): Promise<void>;
@@ -93,11 +91,14 @@ export interface Storage {
     start: number,
     length: number,
     filter?: (object) => boolean,
+    filteredCount?: number,
   ): Promise<MemberPage>;
 
   getAllMembers(clientId: string, contextId: string): Promise<Array<object>>;
 
   getCachedTotals(clientId: string, contextId: string): Promise<Record<string, number> | null>;
+
+  getCachedGroupTotals(clientId: string, contextId: string): Promise<GroupTotals | null>;
 
   cacheTotals(clientId: string, contextId: string): Promise<Record<string, number>>;
 

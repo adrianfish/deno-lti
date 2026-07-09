@@ -4,11 +4,12 @@
 
 import { HTTPHeaderLink, HTTPHeaderLinkEntry } from "@hugoalh/http-header-link";
 import { requestAccessToken } from "./oauth.ts";
+import { buildFilter } from "../utils/filters.ts";
 import { LMS_EXTENSIONS } from "./platform/extensions.ts";
 import { ENRICHMENT_FIELDS } from "./platform/enrichment-fields.ts";
 
 import type { DenoLTI } from "../deno-lti.ts";
-import type { Storage } from "../storage/storage.ts";
+import type { MemberPage, Storage } from "../storage/storage.ts";
 import type { Platform, StoredContextToken } from "../types.ts";
 import type { LTIService } from "./lti-service.ts";
 
@@ -17,6 +18,13 @@ interface MembersPage {
   members: object[];
   next?: string;
   accessToken?: string;
+}
+
+/** The filter dimensions a roster page can be narrowed by. */
+export interface MemberFilter {
+  role?: string;
+  groupId?: string;
+  search?: string;
 }
 
 export class NamesAndRoleService {
@@ -163,11 +171,52 @@ export class NamesAndRoleService {
     userId: string,
     start: number,
     length: number,
-    filter?: (object) => boolean,
-  ): Promise<MembersPage> {
+    filterSpec: MemberFilter = {},
+  ): Promise<MemberPage> {
 
     await this.ensureMembersCached(platformUrl, clientId, contextId, userId);
-    return this.#storage.getPageOfMembers(clientId, contextId, start, length, filter);
+
+    const { role, groupId, search } = filterSpec;
+    const filter = buildFilter(role, groupId, search);
+    const filteredCount = await this.#filteredCount(clientId, contextId, role, groupId, search);
+
+    return this.#storage.getPageOfMembers(clientId, contextId, start, length, filter, filteredCount);
+  }
+
+  /**
+   * Work out how many members match a filter without scanning the roster,
+   * using the cached role/group totals. Returns undefined when the count
+   * cannot be served from cache (a free-text search, or a combined
+   * role+group filter whose intersection we do not cache) — the caller then
+   * falls back to a counting scan.
+   */
+  async #filteredCount(
+    clientId: string,
+    contextId: string,
+    role?: string,
+    groupId?: string,
+    search?: string,
+  ): Promise<number | undefined> {
+
+    const roleActive = !!role && role !== "all";
+    const groupActive = !!groupId && groupId !== "all";
+    const searchActive = !!search?.trim();
+
+    // Free text can match any field, and role∩group is not precomputed.
+    if (searchActive) return undefined;
+    if (roleActive && groupActive) return undefined;
+
+    const groupTotals = await this.#storage.getCachedGroupTotals(clientId, contextId);
+    if (!groupTotals) return undefined;
+
+    if (roleActive) {
+      const roleTotals = await this.#storage.getCachedTotals(clientId, contextId);
+      return roleTotals?.[role] ?? 0;
+    }
+
+    if (groupActive) return groupTotals.byGroup[groupId] ?? 0;
+
+    return groupTotals.total;
   }
 
   async isMembersCacheBuilding(

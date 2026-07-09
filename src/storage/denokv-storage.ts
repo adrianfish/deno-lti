@@ -1,4 +1,4 @@
-import type { Storage } from "./storage.ts";
+import type { GroupTotals, MemberPage, Storage } from "./storage.ts";
 import type { OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
 const LIST_CHUNK = 200;
@@ -49,7 +49,11 @@ export class DenoKVStorage implements Storage {
   }
 
   #totalsKey(clientId: string, contextId: string): Deno.KvKey {
-    return [ "totals", clientId, contextId ];
+    return [ "role-totals", clientId, contextId ];
+  }
+
+  #groupTotalsKey(clientId: string, contextId: string): Deno.KvKey {
+    return [ "group-totals", clientId, contextId ];
   }
 
   #membersCachingKey(clientId: string, contextId: string): Deno.KvKey {
@@ -251,38 +255,50 @@ export class DenoKVStorage implements Storage {
     start: number,
     length: number,
     filter?: (object) => boolean,
+    filteredCount?: number,
   ): Promise<MemberPage> {
 
     const prefix = this.#membersPrefix(clientId, contextId);
+
+    // When the caller already knows the filtered count (no filter, or a
+    // role/group filter whose count we cached) we only need to read the
+    // start..start+length window and can stop the scan as soon as it is
+    // full. We still need the unfiltered total for DataTables, so that also
+    // has to be known up front — otherwise fall back to a full scan.
+    const cachedTotal = (await this.getCachedGroupTotals(clientId, contextId))?.total;
+    const windowed = filteredCount !== undefined && cachedTotal !== undefined && length > 0;
+
     const members = [];
     let recordsTotal = 0;
-    let recordsFiltered = 0;
+    let matched = 0;
     let cursor: string | undefined;
 
     while (true) {
       const iter = this.#kv.list({ prefix }, { cursor, limit: LIST_CHUNK });
       let seenInChunk = 0;
+      let filled = false;
       for await (const entry of iter) {
         seenInChunk++;
         recordsTotal++;
-        console.log(recordsTotal);
         const user = entry.value;
         if (filter && !filter(user)) continue;
-        if (recordsFiltered >= start && members.length < length) {
-          members.push(user);
+        if (matched >= start && members.length < length) members.push(user);
+        matched++;
+        if (windowed && members.length === length) {
+          filled = true;
+          break;
         }
-        recordsFiltered++;
-        //if (members.length === length) break;
       }
+      if (filled) break;
       cursor = iter.cursor || undefined;
       if (!cursor || seenInChunk === 0) break;
-      //if (!cursor || seenInChunk === 0 || members.length === length) break;
     }
 
-    //const recordsTotal = Object.values(await this.getCachedTotals(clientId, contextId)).reduce((a, b) => a + b, 0);
-    //console.log(recordsTotal);
-
-    return { members, recordsTotal, recordsFiltered };
+    return {
+      members,
+      recordsTotal: windowed ? cachedTotal : recordsTotal,
+      recordsFiltered: filteredCount !== undefined ? filteredCount : matched,
+    };
   }
 
   async getAllMembers(clientId: string, contextId: string): Promise<Array<object>> {
@@ -306,27 +322,48 @@ export class DenoKVStorage implements Storage {
     return (await this.#kv.get(this.#totalsKey(clientId, contextId))).value;
   }
 
+  async getCachedGroupTotals(clientId: string, contextId: string): Promise<GroupTotals | null> {
+    return (await this.#kv.get(this.#groupTotalsKey(clientId, contextId))).value;
+  }
+
   async cacheTotals(clientId: string, contextId: string): Promise<Record<string, number>> {
 
-    let totals = await this.getCachedTotals(clientId, contextId);
+    const totals = await this.getCachedTotals(clientId, contextId);
+    const groupTotalsCached = await this.getCachedGroupTotals(clientId, contextId);
 
-    if (!totals) {
-      console.debug(`Totals for clientId ${clientId} and contextId ${contextId} not cached. Building ...`);
-
-      totals = {};
-      const all = await this.getAllMembers(clientId, contextId);
-      for (const m of all) {
-        m.roles.forEach(r => {
-          totals[r] = Object.hasOwn(totals, r) ? totals[r] + 1 : 1;
-        });
-      }
-
-      await this.#kv.set(this.#totalsKey(clientId, contextId), totals);
-    } else {
+    if (totals && groupTotalsCached) {
       console.debug(`Using cached totals for clientId ${clientId} and contextId ${contextId}.`);
+      return totals;
     }
 
-    return totals;
+    console.debug(`Totals for clientId ${clientId} and contextId ${contextId} not cached. Building ...`);
+
+    // A single pass over the members yields the per-role counts, the
+    // per-group counts and the overall member total, so DataTables can page
+    // without rescanning on every draw.
+    const roleTotals: Record<string, number> = {};
+    const groupTotals: GroupTotals = { total: 0, byGroup: {} };
+
+    const all = await this.getAllMembers(clientId, contextId);
+    for (const m of all) {
+      groupTotals.total++;
+
+      m.roles?.forEach(r => {
+        roleTotals[r] = (roleTotals[r] ?? 0) + 1;
+      });
+
+      // Dedupe group ids so a member is counted once per group even if the
+      // platform reports duplicate enrolments (matches the filter predicate).
+      const groupIds = new Set<string>((m.group_enrollments ?? []).map(e => e.group_id));
+      for (const groupId of groupIds) {
+        groupTotals.byGroup[groupId] = (groupTotals.byGroup[groupId] ?? 0) + 1;
+      }
+    }
+
+    await this.#kv.set(this.#totalsKey(clientId, contextId), roleTotals);
+    await this.#kv.set(this.#groupTotalsKey(clientId, contextId), groupTotals);
+
+    return roleTotals;
   }
 
   async hasAnyGroups(clientId: string, contextId: string): Promise<boolean> {
