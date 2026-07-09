@@ -1,77 +1,67 @@
+import type { Storage } from "./storage.ts";
 import type { OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
-export interface MemberPage {
-  members: object[];
-  recordsTotal: number;
-  recordsFiltered: number;
-}
+const LIST_CHUNK = 200;
 
 /**
- * Storage — the single interface the rest of the library talks to.
+ * DenoKVStorage — zero-dependency storage using Deno's built-in KV store.
  *
- * Implement this to use any backing store: Deno KV (built-in), PostgreSQL,
- * Redis, SQLite, etc. The default implementation is DenoKVStorage.
+ * Key schema:
+ *   ["platform", url, clientId]                → Platform
+ *   ["platform_by_url", url, clientId]         → true  (index for list-by-url)
+ *   ["key_public", kid]                        → encrypted public key string
+ *   ["key_private", kid]                       → encrypted private key string
+ *   ["idtoken", key]                           → StoredIdToken   (24h TTL)
+ *   ["contexttoken", key]                      → StoredContextToken (24h TTL)
+ *   ["nonce", nonce]                           → true  (10s TTL)
+ *   ["state", state]                           → OidcStateData (10m TTL)
+ *   ["accesstoken", platformUrl, clientId, scopes] → StoredAccessToken (1h TTL)
  *
- * All TTL values are in **milliseconds**.
+ * Requires: --unstable-kv flag (or "unstable": ["kv"] in deno.json)
  */
 export interface Storage {
-  // -------------------------------------------------------------------------
-  // Platform registry
-  // -------------------------------------------------------------------------
 
   savePlatform(platform: Platform): Promise<void>;
 
   getPlatform(url: string, clientId: string): Promise<Platform | null>;
 
-  /** Returns all platforms registered under the given issuer URL */
-  getPlatformsByUrl(url: string): Promise<Platform[]>;
+  getPlatformsByUrl(url: string): Promise<Array<Platform>>;
 
-  getAllPlatforms(): Promise<Platform[]>;
+  getAllPlatforms(): Promise<Array<Platform>>;
 
   setPlatformActive(url: string, clientId: string, active: boolean): Promise<void>;
 
-  // -------------------------------------------------------------------------
-  // RSA keypairs (stored encrypted — encryption happens in the caller)
-  // -------------------------------------------------------------------------
+  saveKeyPair(
+    kid: string,
+    encryptedPublicKey: string,
+    encryptedPrivateKey: string,
+  ): Promise<void>;
 
-  saveKeyPair(kid: string, encryptedPublicKey: string, encryptedPrivateKey: string): Promise<void>;
-
-  /** Returns the *encrypted* public key PEM */
   getPublicKey(kid: string): Promise<string | null>;
 
-  /** Returns the *encrypted* private key PEM */
   getPrivateKey(kid: string): Promise<string | null>;
 
-  /** Returns all *encrypted* public keys with their kids (for JWKS endpoint) */
   getAllPublicKeys(): Promise<Array<{ kid: string; encryptedKey: string }>>;
-
-  // -------------------------------------------------------------------------
-  // ID tokens (24h TTL)
-  // -------------------------------------------------------------------------
 
   saveIdToken(key: string, token: StoredIdToken, ttlMs: number): Promise<void>;
 
   getIdToken(key: string): Promise<StoredIdToken | null>;
 
-  // -------------------------------------------------------------------------
-  // Context tokens (24h TTL)
-  // -------------------------------------------------------------------------
-
-  saveContextToken(key: string, token: StoredContextToken, ttlMs: number): Promise<void>;
+  saveContextToken(
+    key: string,
+    token: StoredContextToken,
+    ttlMs: number,
+  ): Promise<void>;
 
   getContextToken(key: string): Promise<StoredContextToken | null>;
 
   // -------------------------------------------------------------------------
-  // Nonces — short-lived deduplication keys (10s TTL)
+  // Nonces
   // -------------------------------------------------------------------------
 
   saveNonce(nonce: string, ttlMs: number): Promise<void>;
 
   hasNonce(nonce: string): Promise<boolean>;
-
-  // -------------------------------------------------------------------------
-  // OIDC state (10-minute TTL)
-  // -------------------------------------------------------------------------
 
   saveState(state: string, data: OidcStateData, ttlMs: number): Promise<void>;
 
@@ -79,38 +69,47 @@ export interface Storage {
 
   deleteState(state: string): Promise<void>;
 
-  // -------------------------------------------------------------------------
-  // OAuth2 access token cache (1h TTL)
-  // -------------------------------------------------------------------------
-
   saveAccessToken(record: StoredAccessToken, ttlMs: number): Promise<void>;
 
-  /** Returns a cached token only if it has not yet expired */
   getAccessToken(
     platformUrl: string,
     clientId: string,
-    scopes: string,
+    requestedScopes: string,
   ): Promise<StoredAccessToken | null>;
 
-  // -------------------------------------------------------------------------
-  // Membership cache (NRPS) — cached course members with a build-in-progress flag
-  // -------------------------------------------------------------------------
-
-  /** True while a members cache build is in progress for this context */
   isMembersCaching(clientId: string, contextId: string): Promise<boolean>;
 
-  /** Marks a members cache build as in progress */
   setMembersCaching(clientId: string, contextId: string): Promise<boolean>;
 
-  /** Clears the members-cache-in-progress flag */
   unsetMembersCaching(clientId: string, contextId: string): Promise<void>;
 
-  /** Stores a single cached member */
-  setMember(clientId: string, contextId: string, user: object): Promise<boolean>;
+  setMember(clientId: string, contextId: string, user: any): Promise<boolean>;
 
-  /** True if any members are cached for this context */
   hasAnyMembers(clientId: string, contextId: string): Promise<boolean>;
 
-  /** Drops any cached member-count totals for this context */
-  invalidateTotals(clientId: string, contextId: string): Promise<void>;
+  getPageOfMembers(
+    clientId: string,
+    contextId: string,
+    start: number,
+    length: number,
+    filter?: (object) => boolean,
+  ): Promise<MemberPage>;
+
+  getAllMembers(clientId: string, contextId: string): Promise<Array<object>>;
+
+  getCachedTotals(clientId: string, contextId: string): Promise<Record<string, number> | null>;
+
+  cacheTotals(clientId: string, contextId: string): Promise<Record<string, number>>;
+
+  hasAnyGroups(clientId: string, contextId: string): Promise<boolean>;
+
+  isGroupsCaching(clientId: string, contextId: string): Promise<boolean>;
+
+  setGroupsCaching(clientId: string, contextId: string): Promise<boolean>;
+
+  unsetGroupsCaching(clientId: string, contextId: string): Promise<void>;
+
+  setGroup(clientId: string, contextId: string, group: object): Promise<boolean>;
+
+  getGroups(clientId: string, contextId: string): Promise<Array<object>>;
 }

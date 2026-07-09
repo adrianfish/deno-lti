@@ -196,6 +196,7 @@ export class NamesAndRoleService {
 
     if (await this.#storage.isMembersCaching(clientId, contextId)) {
       // Another request is already filling the cache; wait until at least the first page is in.
+      console.debug(`The members for ${clientId} and ${contextId} are currently being cached.`);
       return;
     }
 
@@ -207,6 +208,7 @@ export class NamesAndRoleService {
     await this.#persistMembers(clientId, contextId, first.members);
 
     if (!first.next) {
+      console.debug(`Only one page of members for clientId ${clientId} and contextId ${contextId}. Unsetting the caching flag, calculating the totals and returning ...`);
       this.#storage.unsetMembersCaching(clientId, contextId);
       await this.#storage.cacheTotals(clientId, contextId);
       return;
