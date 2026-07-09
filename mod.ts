@@ -22,10 +22,7 @@
  */
 
 export { DenoLTI } from "./src/deno-lti.ts";
-export { buildFilter } from "./src/utils/filters.ts";
 export * from   "./src/constants.ts";
 
 export type { LineItem, Result, Score } from "./src/services/grade.ts";
 export type { ContentItem, StoredContextToken, StoredIdToken } from "./src/types.ts";
-export type { MemberFilter } from "./src/services/nrps.ts";
-export type { GroupTotals, MemberPage } from "./src/storage/storage.ts";
