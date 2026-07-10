@@ -13,7 +13,7 @@
  *   const lti = new DenoLTI();
  *
  *   await lti
- *     .onConnect((c, { token }) => {
+ *     .onLaunch((c, { token }) => {
  *       return c.html(`<h1>Hello, ${token.userInfo.name}!</h1>`);
  *     })
  *     .setup("my-lti-tool-domain.com", "my-persistent-secret-key");

@@ -21,7 +21,7 @@ import { Hono } from "jsr:@hono/hono";
 const lti = new DenoLTI();
 
 await lti
-  .onConnect((c, { token }) => {
+  .onLaunch((c, { token }) => {
     return c.html(`<h1>Hello, ${token.userInfo.name}!</h1>`);
   })
   .setup("my-lti-tool-domain.com", "SECRET");
@@ -89,12 +89,12 @@ Must be called after `setup()`.
 
 Register callbacks before calling `setup()`. Each returns `this` for chaining.
 
-#### `lti.onConnect(handler): this`
+#### `lti.onLaunch(handler): this`
 
 Called on every standard LTI resource-link launch (`LtiResourceLinkRequest`). This is the primary entry point for your tool's UI.
 
 ```ts
-lti.onConnect(async (c, { token, ltik }) => {
+lti.onLaunch(async (c, { token, ltik }) => {
   const name = token.userInfo.name;
   const roles = token.platformContext.roles;
   return c.html(`<p>Hello ${name} — roles: ${roles.join(", ")}</p>`);
@@ -132,7 +132,7 @@ All error handlers receive a Hono `Context` and must return a `Response`.
 
 ### Handler arguments
 
-Both `onConnect` and `onDeepLinking` receive `(c: Context, lti: LTIContext)`.
+Both `onLaunch` and `onDeepLinking` receive `(c: Context, lti: LTIContext)`.
 
 **`LTIContext`**
 
