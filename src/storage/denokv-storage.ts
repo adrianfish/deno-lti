@@ -48,7 +48,7 @@ export class DenoKVStorage implements Storage {
     return [ "groups", clientId, contextId ];
   }
 
-  #totalsKey(clientId: string, contextId: string): Deno.KvKey {
+  #roleTotalsKey(clientId: string, contextId: string): Deno.KvKey {
     return [ "role-totals", clientId, contextId ];
   }
 
@@ -318,8 +318,8 @@ export class DenoKVStorage implements Storage {
     return all;
   }
 
-  async getCachedTotals(clientId: string, contextId: string): Promise<Record<string, number> | null> {
-    return (await this.#kv.get(this.#totalsKey(clientId, contextId))).value;
+  async getCachedRoleTotals(clientId: string, contextId: string): Promise<Record<string, number> | null> {
+    return (await this.#kv.get(this.#roleTotalsKey(clientId, contextId))).value;
   }
 
   async getCachedGroupTotals(clientId: string, contextId: string): Promise<GroupTotals | null> {
@@ -328,7 +328,7 @@ export class DenoKVStorage implements Storage {
 
   async cacheTotals(clientId: string, contextId: string): Promise<Record<string, number>> {
 
-    const totals = await this.getCachedTotals(clientId, contextId);
+    const totals = await this.getCachedRoleTotals(clientId, contextId);
     const groupTotalsCached = await this.getCachedGroupTotals(clientId, contextId);
 
     if (totals && groupTotalsCached) {
@@ -360,7 +360,7 @@ export class DenoKVStorage implements Storage {
       }
     }
 
-    await this.#kv.set(this.#totalsKey(clientId, contextId), roleTotals);
+    await this.#kv.set(this.#roleTotalsKey(clientId, contextId), roleTotals);
     await this.#kv.set(this.#groupTotalsKey(clientId, contextId), groupTotals);
 
     return roleTotals;

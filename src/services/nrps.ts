@@ -210,7 +210,7 @@ export class NamesAndRoleService {
     if (!groupTotals) return undefined;
 
     if (roleActive) {
-      const roleTotals = await this.#storage.getCachedTotals(clientId, contextId);
+      const roleTotals = await this.#storage.getCachedRoleTotals(clientId, contextId);
       return roleTotals?.[role] ?? 0;
     }
 
@@ -295,12 +295,12 @@ export class NamesAndRoleService {
     await this.#primeMembersCache(platformUrl, clientId, contextId, userId);
   }
 
-  async getCachedTotals(
+  async getCachedRoleTotals(
     clientId: string,
     contextId: string,
   ): Promise<Record<string, string>> {
 
-    return await this.#storage.getCachedTotals(clientId, contextId);
+    return await this.#storage.getCachedRoleTotals(clientId, contextId);
   }
 
   /**

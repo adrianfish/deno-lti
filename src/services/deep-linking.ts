@@ -18,7 +18,6 @@ import type { ContentItem, LTIToken } from "../types.ts";
  * @param toolUrl - The tool's own URL (used as iss in the response JWT)
  */
 export async function createDeepLinkingForm(
-  //token: LTIToken,
   data: Record<string, string>,
   items: ContentItem[],
   storage: Storage,

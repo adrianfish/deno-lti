@@ -19,10 +19,12 @@
  *     .setup("my-lti-tool-domain.com", "my-persistent-secret-key");
  *
  * </code></pre>
+ *
+ * @module
  */
 
 export { DenoLTI } from "./src/deno-lti.ts";
 export * from   "./src/constants.ts";
 
 export type { LineItem, Result, Score } from "./src/services/grade.ts";
-export type { ContentItem, StoredContextToken, StoredIdToken } from "./src/types.ts";
+export type { ContentItem, Group, StoredContextToken, StoredIdToken } from "./src/types.ts";

@@ -24,7 +24,7 @@ await lti
   .onLaunch((c, { token }) => {
     return c.html(`<h1>Hello, ${token.userInfo.name}!</h1>`);
   })
-  .setup("my-lti-tool-domain.com", "SECRET");
+  .setup("my-lti-tool-domain.com", "SECRET", "My LTI Tool", "A tool that does stuff", "https://logos.com/my-tool-logo.png");
 
 // If you're using Hono for your app logic, you can mount under a sub-path alongside other routes
 const app = new Hono();
@@ -57,23 +57,29 @@ Creates a new LTI tool instance. Call the fluent callback-registration methods b
 
 ---
 
-### `lti.setup(domain, secret, kv?, options?): Promise<this>`
+### `lti.setup(domain, secret, name, description, logoUri, options?): Promise<this>`
 
 Initializes the tool. Must be called before `handler()`.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `secret` | `string` | Passphrase for signing LTIKs and encrypting stored keys. Keep stable across restarts. |
+| `toolDomain` | `string` | The domain that this tool will be hosted under. |
+| `secret` | `string` | The passphrase for signing LTIKs and encrypting stored keys. Keep stable across restarts. |
+| `name` | `string` | The name of your LTI tool. This is what will be displayed in the Platform's UI. |
+| `description` | `string` | The description of your LTI tool. This is what will be displayed in the Platform's UI. |
+| `logoUri` | `string` | The uri to your tools logo. This is what will be displayed in the Platform's UI. |
 | `options` | `ToolOptions` *(optional)* | Configuration — see below. |
 
 **`ToolOptions`**
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `appRoute` | `string` | `"/"` | Route for the main LTI launch endpoint. |
+| `ltiRoute` | `string` | `"/"` | Route for the main LTI launch endpoint. |
 | `cookies` | `CookieOptions` | — | Cookie settings: `secure`, `sameSite` (`"Strict"` \| `"Lax"` \| `"None"`), `domain`. |
 | `devMode` | `boolean` | `false` | Skips session cookie validation. **Never use in production.** |
 | `debug` | `boolean` | `false` | Enables verbose debug logging. |
+| `customParameters` | `object` | `undefined` | Extra custom parameters to request at registration. |
+| `services` | `string[]` | `undefined` | Services to enable for this LTI tool. ROSTER, GROUPS and GRADINGE currently supported. |
 
 ---
 
@@ -140,7 +146,7 @@ Both `onLaunch` and `onDeepLinking` receive `(c: Context, lti: LTIContext)`.
 |-------|------|-------------|
 | `token` | `LTIToken` | Combined identity + launch context (see below). |
 | `context` | `StoredContextToken` | Alias for `token.platformContext`. |
-| `ltik` | `string` | The signed session JWT. Pass this in subsequent API requests as `Authorization: LTIK-AUTH-V1 Token=<ltik>`. |
+| `ltik` | `string` | The signed session JWT. Pass this in subsequent API requests as the ltik query parameter. |
 
 **`LTIToken`** (extends `StoredIdToken`)
 
@@ -266,13 +272,15 @@ Retrieves all results for a line item. Follows pagination automatically.
 
 Available after `setup()`. Implements [LTI Deep Linking v1.2](https://www.imsglobal.org/spec/lti-dl/v1p0/).
 
-#### `lti.DeepLinking.createDeepLinkingForm(data, items, toolUrl): Promise<string>`
+#### `lti.createDeepLinkingForm(data, items, toolUrl): Promise<string>`
 
-Returns an HTML string containing a form that auto-submits the signed Deep Linking response back to the platform. Render this directly as the response body.
+Returns an HTML string containing a form that auto-submits the signed Deep Linking response back to
+the platform. Render this directly as the response body.
 
-#### `lti.DeepLinking.createDeepLinkingMessage(token, items, toolUrl): Promise<string>`
+#### `lti.createDeepLinkingMessage(token, items, toolUrl): Promise<string>`
 
-Returns the raw signed JWT Deep Linking response message, for cases where you need to submit it manually.
+Returns the raw signed JWT Deep Linking response message, for cases where you need to submit it
+manually.
 
 **`ContentItem`**
 
@@ -285,7 +293,9 @@ Returns the raw signed JWT Deep Linking response message, for cases where you ne
 
 ## Platform registration
 
-Direct the LMS to `GET /register?openid_configuration=<url>`. The handler fetches the platform's OpenID configuration, completes OAuth2 dynamic client registration, and stores the platform automatically.
+Direct the LMS to `GET /register?openid_configuration=<url>`. The handler fetches the platform's
+OpenID configuration, completes OAuth2 dynamic client registration, and stores the platform
+automatically.
 
 ---
 

@@ -96,7 +96,7 @@ export interface Storage {
 
   getAllMembers(clientId: string, contextId: string): Promise<Array<object>>;
 
-  getCachedTotals(clientId: string, contextId: string): Promise<Record<string, number> | null>;
+  getCachedRoleTotals(clientId: string, contextId: string): Promise<Record<string, number> | null>;
 
   getCachedGroupTotals(clientId: string, contextId: string): Promise<GroupTotals | null>;
 

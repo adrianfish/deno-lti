@@ -7,9 +7,9 @@ import { handleLogin } from "./routes/login.ts";
 import { handleRegisterPlatform } from "./routes/register-platform.ts";
 import { DenoKVStorage } from "./storage/denokv-storage.ts";
 import { GradeService } from "./services/grade.ts";
+import { GroupsService } from "./services/groups.ts";
 import { NamesAndRoleService } from "./services/nrps.ts";
 import { GRADING, GROUPS, ROSTER } from "./constants.ts";
-import { GroupsService } from "./services/groups.ts";
 import { LTIService } from "./services/lti-service.ts";
 import { createDeepLinkingForm, createDeepLinkingMessage } from "./services/deep-linking.ts";
 import { deriveAesKey } from "./crypto.ts";
@@ -17,7 +17,7 @@ import { deriveAesKey } from "./crypto.ts";
 import type { MiddlewareHandler } from "hono";
 import type { MemberPage, Storage } from "./storage/storage.ts";
 import type { MemberFilter } from "./services/nrps.ts";
-import type { ErrorHandler, LTIHandler, ToolOptions } from "./types.ts";
+import type { Group, ErrorHandler, LTIHandler, ToolOptions } from "./types.ts";
 
 export class DenoLTI {
 
@@ -59,7 +59,7 @@ export class DenoLTI {
    *                 the dynamic registration and displayed in the Platform's UI
    * @param {ToolOptions} options Optional configuration.
    *
-   * @returns A promise containing this DenoLTI instance
+   * @returns {Promise<DenoLTI>} A promise containing this DenoLTI instance
    */
   async setup(
     toolDomain: string,
@@ -107,6 +107,20 @@ export class DenoLTI {
   grade!: GradeService;
   groups!: GroupsService;
 
+  /**
+   * Returns a page of members from the roster service. If the cache is hot, this will be very
+   * quick but, if not, there may be a delay while the members are retrieved from the LTI Platform.
+   *
+   * @param {string} platformUrl The url of the lti Platform this tool is talking to.
+   * @param {string} clientId The clientId provided by the Platform during the launch.
+   * @param {string} contextId The contextId provided by the Platform during the launch
+   * @param {string} userId The userId provided by the Platform during the launch
+   * @param {number} startNum The page number to retrieve
+   * @param {number} lengthNum The number of members to retrieve
+   * @param {object} [filter] The spec to be used while filtering the members
+   *
+   * @returns {Promise<MemberPage | null>} A promise which fulfils with the MemberPage
+   */
   async getPageOfMembers(
     platformUrl: string,
     clientId: string,
@@ -115,11 +129,23 @@ export class DenoLTI {
     startNum: number,
     lengthNum: number,
     filter?: MemberFilter,
-  ): Promise<MemberPage> {
+  ): Promise<MemberPage | null> {
 
-    return this.#nrps.getPageOfMembers(platformUrl, clientId, contextId, userId, startNum, lengthNum, filter);
+    if (this.#options.services?.includes(ROSTER)) {
+      return this.#nrps.getPageOfMembers(platformUrl, clientId, contextId, userId, startNum, lengthNum, filter);
+    }
+
+    return null;
   }
 
+  /**
+   * Tests if the cache of members is currently being built.
+   *
+   * @param {string} clientId The clientId provided by the Platform during the launch.
+   * @param {string} contextId The contextId provided by the Platform during the launch
+   *
+   * @returns {Promise<boolean>} A promise which fulfils to either true or false.
+   */
   async isMembersCacheBuilding(
     clientId: string,
     contextId: string
@@ -132,12 +158,24 @@ export class DenoLTI {
     return false;
   }
 
+  /*
+   * Returns the groups from the groups service. If the cache is hot, this will be very
+   * quick but, if not, there may be a delay while the groups are retrieved from the LTI Platform.
+   * If GROUPS was not specified during setup, a null promise will be returned.
+   *
+   * @param {string} platformUrl The url of the lti Platform this tool is talking to.
+   * @param {string} clientId The clientId provided by the Platform during the launch.
+   * @param {string} contextId The contextId provided by the Platform during the launch
+   * @param {string} userId The userId provided by the Platform during the launch
+   *
+   * @returns {Promise<Array<Group> | null>} A promise which fulfils with the MemberPage
+   */
   async getGroups(
     platformUrl: string,
     clientId: string,
     contextId: string,
     userId: string,
-  ): Promise<Array<Record<string, string>> | null> {
+  ): Promise<Array<Group> | null> {
 
     if (this.#options.services?.includes(GROUPS)) {
       return this.#groups.getGroups(platformUrl, clientId, contextId, userId);
@@ -146,78 +184,152 @@ export class DenoLTI {
     return null;
   }
 
-  async getCachedTotals(
+  /**
+   * Get the total members, broken down by LTI role.
+   *
+   * @param {string} clientId The clientId provided by the Platform during the launch.
+   * @param {string} contextId The contextId provided by the Platform during the launch
+   *
+   * @returns {Promise<object | null>} A promise which fulfils with the totals object or null
+   */
+  async getRoleTotals(
     clientId: string,
     contextId: string,
   ): Promise<Record<string, string> | null> {
 
     if (this.#options.services?.includes(ROSTER)) {
-      return this.#nrps.getCachedTotals(clientId, contextId);
+      return this.#nrps.getCachedRoleTotals(clientId, contextId);
     }
 
     return null;
   }
 
-  get DeepLinking() {
-    return {
-      createDeepLinkingForm: (
-        data: Record<string, string>,
-        items: Parameters<typeof createDeepLinkingForm>[1],
-        toolUrl: string,
-      ) =>
-        createDeepLinkingForm(
-          data,
-          items,
-          this.#storage,
-          this.#aesKey,
-          toolUrl,
-        ),
+  /**
+   * Creates and returns a form with the supplied content items encoded ready for a deep linking
+   * request. The form auto submits.
+   *
+   * @param {object} data The lti params
+   * @param {Array} items The array of content items to encode into the form
+   * @param {string} toolUrl The url of this tool.
+   *
+   * @returns {Promise<string>} The form markup as a string.
+   */
+  createDeepLinkingForm(
+    data: Record<string, string>,
+    items: ContentItem[],
+    toolUrl: string,
+  ): Promise<string> {
 
-      createDeepLinkingMessage: (
-        token: Parameters<typeof createDeepLinkingMessage>[0],
-        items: Parameters<typeof createDeepLinkingMessage>[1],
-        toolUrl: string,
-      ) =>
-        createDeepLinkingMessage(
-          token,
-          items,
-          this.#storage,
-          this.#aesKey,
-          toolUrl,
-        ),
-    };
+    return createDeepLinkingForm(
+      data,
+      items,
+      this.#storage,
+      this.#aesKey,
+      toolUrl,
+    );
+  }
+
+  /**
+   * Create a signed Deep Linking response JWT. The caller can embed this in a form or return it
+   * directly.
+   *
+   * @param {LTIToken} token The lti parameters.
+   * @param {Array} items The array of content items to encode into the JWT.
+   * @param {string} toolUrl The url of this tool.
+   *
+   * @returns {Promise<string>} The encoded deep linking JWT
+   */
+  createDeepLinkingMessage(
+    token: LTIToken,
+    items: ContentItem[],
+    toolUrl: string,
+  ): Promise<string> {
+
+    return createDeepLinkingMessage(
+      token,
+      items,
+      this.#storage,
+      this.#aesKey,
+      toolUrl,
+    );
   }
 
   // ---------------------------------------------------------------------------
   // Callback registration
   // ---------------------------------------------------------------------------
 
+  /**
+   * Register a launch callback
+   *
+   * @param {LTIHandler} handler The handler to be called once launch has completed.
+   * @returns {DenoLTI} Returns this DenoLTI instance to allow chaining.
+   */
   onLaunch(handler: LTIHandler): this {
+
     this.#launchCallback = handler;
     return this;
   }
 
+  /**
+   * Register a deep link  callback
+   *
+   * @param {LTIHandler} handler The handler to be called once a deep linking launch has completed.
+   * @returns {DenoLTI} Returns this DenoLTI instance to allow chaining.
+   */
   onDeepLinking(handler: LTIHandler): this {
+
     this.#deepLinkingCallback = handler;
     return this;
   }
 
+  /**
+   * Register a session timeout callback
+   *
+   * @param {LTIHandler} handler The handler to be called if the sessions times out.
+   *
+   * @returns {DenoLTI} Returns this DenoLTI instance to allow chaining.
+   */
   onSessionTimeout(handler: ErrorHandler): this {
+
     this.#sessionTimeoutCallback = handler;
     return this;
   }
 
+  /**
+   * Register an invalid token callback
+   *
+   * @param {LTIHandler} handler The handler to be called if a token is invalid
+   *
+   * @returns {DenoLTI} Returns this DenoLTI instance to allow chaining.
+   */
   onInvalidToken(handler: ErrorHandler): this {
+
     this.#invalidTokenCallback = handler;
     return this;
   }
 
+  /**
+   * Register an unregistered platform callback
+   *
+   * @param {ErrorHandler} handler The handler to be called if a platform is not registered
+   *
+   * @returns {DenoLTI} Returns this DenoLTI instance to allow chaining.
+   */
   onUnregisteredPlatform(handler: ErrorHandler): this {
+
     this.#unregisteredPlatformCallback = handler;
     return this;
   }
 
+  /**
+   * Register an inactive platform callback
+   *
+   * @param {ErrorHandler} handler The handler to be called if the platform is inactive
+   *
+   * @returns {DenoLTI} Returns this DenoLTI instance to allow chaining.
+   */
   onInactivePlatform(handler: ErrorHandler): this {
+
     this.#inactivePlatformCallback = handler;
     return this;
   }
@@ -227,11 +339,15 @@ export class DenoLTI {
   // ---------------------------------------------------------------------------
 
   /**
-   * Returns the configured Hono instance.
-   * Use this to mount deno-lti under a sub-path or alongside other routes:
+   * Returns the configured Hono instance. Use this to mount deno-lti under a sub-path or alongside
+   * other routes.
    *
+   * <pre><code>
    *   const mainApp = new Hono()
    *   mainApp.route("/lti", await lti.setup(domain, key).then(l => l.handler()))
+   * </code></pre>
+   *
+   * @returns The Hono instance
    */
   handler(): Hono {
 
@@ -308,6 +424,7 @@ export class DenoLTI {
   }
 
   #assertReady(): void {
+
     if (!this.#ready) {
       throw new Error("Call lti.setup() before using the tool");
     }
