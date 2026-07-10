@@ -174,7 +174,9 @@ export class GroupsService {
     await this.#primeGroupsCache(platformUrl, clientId, contextId, userId);
   }
 
-  async getGroups(clientId: string, contextId: string): Promise<Array<Group>> {
+  async getGroups(platformUrl: string, clientId: string, contextId: string, userId: string): Promise<Array<Group>> {
+
+    await this.ensureGroupsCached(platformUrl, clientId, contextId, userId);
 
     return await this.#storage.getGroups(clientId, contextId);
   }

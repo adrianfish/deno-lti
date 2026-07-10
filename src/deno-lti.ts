@@ -167,12 +167,14 @@ export class DenoLTI {
   }
 
   async getGroups(
+    platformUrl: string,
     clientId: string,
     contextId: string,
+    userId: string,
   ): Promise<Array<Record<string, string>> | null> {
 
     if (this.#options.services?.includes(GROUPS)) {
-      return this.#groups.getGroups(clientId, contextId);
+      return this.#groups.getGroups(platformUrl, clientId, contextId, userId);
     }
 
     return null;
