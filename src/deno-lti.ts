@@ -120,23 +120,6 @@ export class DenoLTI {
     return this.#nrps.getPageOfMembers(platformUrl, clientId, contextId, userId, startNum, lengthNum, filter);
   }
 
-  async ensureMembersCached(
-    platformUrl: string,
-    clientId: string,
-    contextId: string,
-    userId: string,
-  ): Promise<void> {
-
-    if (this.#options.services?.includes(ROSTER)) {
-      await this.#nrps.ensureMembersCached(
-        platformUrl,
-        clientId,
-        contextId,
-        userId,
-      );
-    }
-  }
-
   async isMembersCacheBuilding(
     clientId: string,
     contextId: string
@@ -147,23 +130,6 @@ export class DenoLTI {
     }
 
     return false;
-  }
-
-  async ensureGroupsCached(
-    platformUrl: string,
-    clientId: string,
-    contextId: string,
-    userId: string,
-  ): Promise<void> {
-
-    if (this.#options.services?.includes(GROUPS)) {
-      await this.#groups.ensureGroupsCached(
-        platformUrl,
-        clientId,
-        contextId,
-        userId,
-      );
-    }
   }
 
   async getGroups(
@@ -321,7 +287,8 @@ export class DenoLTI {
     // Session middleware — covers all other routes
     // -------------------------------------------------------------------------
     const sessionMiddleware: MiddlewareHandler = createSessionMiddleware({
-      lti: this,
+      nrps: this.#nrps,
+      groupsService: this.#groups,
       storage: this.#storage,
       secret: this.#secret,
       ltiService: this.#ltiService,

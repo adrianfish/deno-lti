@@ -10,7 +10,8 @@
  */
 
 import { getCookie, getSignedCookie, setCookie, setSignedCookie } from "hono/cookie";
-import { DenoLTI } from "../deno-lti.ts";
+import { NamesAndRoleService } from "../services/nrps.ts";
+import { GroupsService } from "../services/groups.ts";
 import { validateToken } from "../auth/tokens.ts";
 import { signLtik, verifyLtik } from "../auth/tokens.ts";
 import { randomHex } from "../auth/keys.ts";
@@ -26,7 +27,8 @@ const IDTOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const CONTEXT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 interface SessionMiddlewareOptions {
-  lti: DenoLTI;
+  nrps: NamesAndRoleService;
+  groupsService: GroupsService;
   storage: Storage;
   secret: string;
   ltiService: LTIService;
@@ -49,7 +51,8 @@ interface SessionMiddlewareOptions {
 export function createSessionMiddleware(opts: SessionMiddlewareOptions): MiddlewareHandler {
 
   const {
-    lti,
+    nrps,
+    groupsService,
     storage,
     secret,
     ltiService,
@@ -248,8 +251,8 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
 
       // Kick off member and group caching
       console.debug("Kicking off members and groups caching (if requested) from launch ...");
-      lti.ensureMembersCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
-      lti.ensureGroupsCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
+      nrps.ensureMembersCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
+      groupsService.ensureGroupsCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
 
       // Redirect to target with ltik
       const targetUri = contextToken.targetLinkUri || "/";
