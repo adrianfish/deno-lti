@@ -3,6 +3,7 @@
  */
 
 import { createRemoteJWKSet, importJWK, importSPKI, jwtVerify, SignJWT } from "jose";
+import { DEEP_LINKING, RESOURCE_LINK } from "../messages.ts";
 
 import type { JWTPayload } from "jose";
 import type { Platform, StoredContextToken, StoredIdToken } from "../types.ts";
@@ -124,7 +125,7 @@ export async function validateToken(
   if (!deploymentId) throw new Error("Missing LTI deployment_id claim");
   if (!payload.sub) throw new Error("Missing sub claim");
 
-  if (messageType === "LtiResourceLinkRequest") {
+  if (messageType === RESOURCE_LINK) {
     if (!targetLinkUri) throw new Error("Missing target_link_uri claim");
     if (!resourceLink?.id) throw new Error("Missing resource_link.id claim");
   }
@@ -187,7 +188,7 @@ export async function validateToken(
     groups,
   };
 
-  if (contextToken.messageType === "LtiDeepLinkingRequest") {
+  if (contextToken.messageType === DEEP_LINKING) {
     if (!contextToken.deepLinkingSettings) throw new Error("No deep_linking_settings supplied");
     if (!contextToken.deepLinkingSettings.deep_link_return_url) throw new Error("No deep_link_return_url supplied");
     if (!contextToken.deepLinkingSettings.accept_types) throw new Error("No accept_types supplied");

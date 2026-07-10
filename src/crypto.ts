@@ -1,7 +1,6 @@
 /**
  * AES-256-CBC encryption helpers using the Web Crypto API.
  *
- * Replaces Node.js crypto.createCipheriv / createDecipheriv.
  * All operations are async; the key is derived once in LTIHandler.setup()
  * and reused throughout the lifecycle.
  */

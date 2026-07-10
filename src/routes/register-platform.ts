@@ -1,5 +1,6 @@
 import { ENRICHMENT_FIELDS } from "../services/platform/enrichment-fields.ts";
 import { DEEPLINKING, GRADING, ROSTER  } from "../constants.ts";
+import { DEEP_LINKING, RESOURCE_LINK  } from "../messages.ts";
 
 import type { Context } from "hono";
 import type { Platform, ToolOptions } from "../types.ts";
@@ -87,7 +88,7 @@ export async function handleRegisterPlatform(
 
   const messages = [
     {
-      "type": "LtiResourceLinkRequest",
+      "type": RESOURCE_LINK,
       "target_link_uri": `https://${service.toolDomain}/lti`,
       "placements": [ "course_navigation", "https://canvas.instructure.com/lti/course_navigation" ],
       "https://canvas.instructure.com/lti/course_navigation/default_enabled": true,
@@ -98,7 +99,7 @@ export async function handleRegisterPlatform(
   if (options.services?.includes?.(DEEPLINKING)) {
     messages.push(
       {
-        "type": "LtiDeepLinkingRequest",
+        "type": DEEP_LINKING,
         "target_link_uri": `https://${service.toolDomain}/lti`,
         "label": "Add a language",
         "placements": [ "https://canvas.instructure.com/lti/assignment_selection" ],

@@ -15,6 +15,7 @@ import { validateToken } from "../auth/tokens.ts";
 import { signLtik, verifyLtik } from "../auth/tokens.ts";
 import { randomHex } from "../auth/keys.ts";
 import { LTIService } from "../services/lti-service.ts";
+import { DEEP_LINKING, RESOURCE_LINK } from "../messages.ts";
 
 import type { Storage } from "../storage/storage.ts";
 import type { CookieOptions, ErrorHandler, LTIHandler, LtikPayload, Platform } from "../types.ts";
@@ -39,14 +40,6 @@ interface SessionMiddlewareOptions {
   debug?: boolean;
   cookieOptions?: CookieOptions;
   ltiRoute: string;
-}
-
-// ---------------------------------------------------------------------------
-// LTIK extraction
-// ---------------------------------------------------------------------------
-
-function extractLtik(c: Context): string | undefined {
-  return c.req.query("ltik");
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +90,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
     // -----------------------------------------------------------------
     // 2. Subsequent request — must carry LTIK
     // -----------------------------------------------------------------
-    const ltik: string | null = extractLtik(c);
+    const ltik: string | null = c.req.query("ltik");
     if (!ltik) {
       return onInvalidToken(c);
     }
@@ -154,7 +147,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       console.debug("");
     }
 
-    if (contextToken.messageType === "LtiDeepLinkingRequest" && pathname === ltiRoute) {
+    if (contextToken.messageType === DEEP_LINKING && pathname === ltiRoute) {
       return deepLinkingCallback(c, ltiContext);
     }
 

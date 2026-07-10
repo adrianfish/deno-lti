@@ -1,3 +1,5 @@
+import { DEEP_LINKING, RESOURCE_LINK } from "./messages.ts";
+
 import type { Context } from "hono";
 
 // ---------------------------------------------------------------------------
@@ -51,7 +53,7 @@ export interface StoredContextToken {
   resource: Record<string, unknown>;
   custom: Record<string, unknown>;
   launchPresentation: Record<string, unknown>;
-  messageType: "LtiResourceLinkRequest" | "LtiDeepLinkingRequest";
+  messageType: RESOURCE_LINK | DEEP_LINKING";
   version: string;
   deepLinkingSettings?: Record<string, unknown>;
   lis: Record<string, unknown>;
