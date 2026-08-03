@@ -25,13 +25,13 @@ export async function handleRegisterPlatform(
   }
 
   const openIdConfig = await fetch(openIdUrl)
-    .then((r) => {
+    .then(r => {
       if (r.ok) {
         return r.json();
       }
       throw new Error(`Network error while retrieving OpenId configuration from ${openIdUrl}`);
     })
-    .catch((e) => console.error(e));
+    .catch(e => console.error(e));
 
   if (options.debug) {
     console.debug("");

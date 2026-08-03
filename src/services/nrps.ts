@@ -82,6 +82,8 @@ export class NamesAndRoleService {
 
       const requestedScopes = [
         "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
+        "sakai.lti.api.content.read",
+        "sakai.lti.api.gradebook.gradeAll",
       ];
 
       accessToken = await requestAccessToken(
@@ -94,6 +96,28 @@ export class NamesAndRoleService {
         this.#storage,
         this.#aesKey,
       );
+
+      if (!accessToken) {
+        console.debug("Failed to get an access token for our nrps call. Returning null ...");
+        return null;
+      }
+
+      const url = `${contextToken.custom.sakai_webapi_endpoint}/sites/${contextToken.contextId}/grades`;
+      fetch(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      .then(r => {
+
+        if (r.ok) {
+          return r.json();
+        }
+        throw new Error(`Network error while getting roster from ${url}`);
+      })
+      .then(roster => {
+        console.log(roster);
+      });
 
       membershipsUrl = contextToken?.namesRoles?.context_memberships_url as string | undefined;
       if (!membershipsUrl) throw new Error("No context_memberships_url in context");

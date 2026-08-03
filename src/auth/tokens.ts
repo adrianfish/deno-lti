@@ -111,7 +111,6 @@ export async function validateToken(
   // -------------------------------------------------------------------------
   // LTI 1.3 claim validation
   // -------------------------------------------------------------------------
-  //const messageType = payload["https://purl.imsglobal.org/spec/lti/claim/message_type"] as string;
   const messageType = payload["https://purl.imsglobal.org/spec/lti/claim/message_type"];
   const version = payload["https://purl.imsglobal.org/spec/lti/claim/version"] as string;
   const deploymentId = payload["https://purl.imsglobal.org/spec/lti/claim/deployment_id"] as string;

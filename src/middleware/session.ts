@@ -249,10 +249,15 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       });
       */
 
-      // Kick off member and group caching
-      console.debug("Kicking off members and groups caching (if requested) from launch ...");
-      nrps.ensureMembersCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
-      groupsService.ensureGroupsCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
+      if (nrps) {
+        console.debug("Kicking off members caching ...");
+        nrps.ensureMembersCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
+      }
+
+      if (groupsService) {
+        console.debug("Kicking off groups caching ...");
+        groupsService.ensureGroupsCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
+      }
 
       // Redirect to target with ltik
       const targetUri = contextToken.targetLinkUri || "/";

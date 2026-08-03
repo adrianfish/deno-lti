@@ -25,8 +25,11 @@ export async function createDeepLinkingForm(
   toolUrl: string,
 ): Promise<string> {
 
-  const token: StoredIdToken | null = await storage.getIdToken(`${data.platformCode}${data.userId}`);
-  const contextToken: StoredContextToken | null = await storage.getContextToken(`${data.contextId}${data.userId}`);
+  const userIdIndex = data.userId.lastIndexOf("/");
+  const userId = data.userId.substring(userIdIndex + 1);
+
+  const token: StoredIdToken | null = await storage.getIdToken(`${data.platformCode}${userId}`);
+  const contextToken: StoredContextToken | null = await storage.getContextToken(`${data.contextId}${userId}`);
 
   token.platformContext = { deepLinkingSettings: contextToken?.deepLinkingSettings };
 
@@ -57,6 +60,7 @@ export async function createDeepLinkingMessage(
   aesKey: CryptoKey,
   toolUrl: string,
 ): Promise<string> {
+
   const settings = token.platformContext.deepLinkingSettings;
 
   let data = settings.data;
@@ -78,7 +82,6 @@ export async function createDeepLinkingMessage(
     "https://purl.imsglobal.org/spec/lti-dl/claim/data": data,
   })
     .setProtectedHeader({ alg: "RS256", kid })
-    //.setIssuer(toolUrl)
     .setIssuer(token.clientId)
     .setAudience(token.iss)
     .setSubject(token.user)

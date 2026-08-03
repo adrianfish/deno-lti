@@ -63,7 +63,8 @@ export async function requestAccessToken(
   // Signed client assertion JWT
   const assertion = await new SignJWT({})
     .setProtectedHeader({ alg: "RS256", kid: platformKid })
-    .setIssuer(`https://${toolDomain}/lti`)
+    //.setIssuer(`https://${toolDomain}/lti`)
+    .setIssuer(clientId)
     .setSubject(clientId)
     .setAudience(platformAccessTokenEndpoint)
     .setIssuedAt(now)
