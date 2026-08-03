@@ -32,36 +32,52 @@ export class DenoKVStorage implements Storage {
     return new DenoKVStorage(await Deno.openKv(path));
   }
 
+  #publicKeyKey(
+    kid: string,
+  ): Deno.KvKey {
+    return ["lti", "key_public", kid];
+  }
+
+  #privateKeyKey(
+    kid: string,
+  ): Deno.KvKey {
+    return ["lti", "key_private", kid];
+  }
+
   #accessTokenKey(
     platformUrl: string,
     clientId: string,
     requestedScopes: string
   ): Deno.KvKey {
-    return [ "accesstoken", platformUrl, clientId, requestedScopes ];
+    return [ "lti", "accesstoken", platformUrl, clientId, requestedScopes ];
   }
 
   #membersPrefix(clientId: string, contextId: string): Deno.KvKey {
-    return [ "members", clientId, contextId ];
+    return [ "lti", "members", clientId, contextId ];
   }
 
   #groupsPrefix(clientId: string, contextId: string): Deno.KvKey {
-    return [ "groups", clientId, contextId ];
+    return [ "lti", "groups", clientId, contextId ];
   }
 
   #roleTotalsKey(clientId: string, contextId: string): Deno.KvKey {
-    return [ "role-totals", clientId, contextId ];
+    return [ "lti", "role-totals", clientId, contextId ];
   }
 
   #groupTotalsKey(clientId: string, contextId: string): Deno.KvKey {
-    return [ "group-totals", clientId, contextId ];
+    return [ "lti", "group-totals", clientId, contextId ];
   }
 
   #membersCachingKey(clientId: string, contextId: string): Deno.KvKey {
-    return [ "members-caching", clientId, contextId ];
+    return [ "lti", "members-caching", clientId, contextId ];
   }
 
   #groupsCachingKey(clientId: string, contextId: string): Deno.KvKey {
-    return [ "groups-caching", clientId, contextId ];
+    return [ "lti", "groups-caching", clientId, contextId ];
+  }
+
+  #platformKey(url: string, clientId: string): Deno.KvKey {
+    return [ "lti", "platform", url, clientId];
   }
 
   // -------------------------------------------------------------------------
@@ -69,17 +85,17 @@ export class DenoKVStorage implements Storage {
   // -------------------------------------------------------------------------
 
   async savePlatform(platform: Platform): Promise<void> {
-    await this.#kv.set(["platform", platform.url, platform.clientId], platform);
+    await this.#kv.set(this.#platformKey(platform.url, platform.clientId), platform);
   }
 
   async getPlatform(url: string, clientId: string): Promise<Platform | null> {
-    return (await this.#kv.get(["platform", url, clientId])).value;
+    return (await this.#kv.get(this.#platformKey(url, clientId))).value;
   }
 
   async getPlatformsByUrl(url: string): Promise<Platform[]> {
 
     const results = [];
-    for await (const entry of this.#kv.list({ prefix: ["platform", url] })) {
+    for await (const entry of this.#kv.list({ prefix: ["lti", "platform", url] })) {
       if (entry.value) results.push(entry.value);
     }
     return results;
@@ -88,7 +104,7 @@ export class DenoKVStorage implements Storage {
   async getAllPlatforms(): Promise<Platform[]> {
 
     const results = [];
-    for await (const entry of this.#kv.list({ prefix: ["platform"] })) {
+    for await (const entry of this.#kv.list({ prefix: ["lti", "platform"] })) {
       if (entry.value) results.push(entry.value);
     }
     return results;
@@ -98,7 +114,7 @@ export class DenoKVStorage implements Storage {
 
     const platform = await this.getPlatform(url, clientId);
     if (!platform) throw new Error(`Platform not found: ${url} / ${clientId}`);
-    await this.#kv.set(["platform", url, clientId], { ...platform, active });
+    await this.#kv.set(this.#platformKey(url, clientId), { ...platform, active });
   }
 
   // -------------------------------------------------------------------------
@@ -111,24 +127,24 @@ export class DenoKVStorage implements Storage {
     encryptedPrivateKey: string,
   ): Promise<void> {
 
-    await this.#kv.set(["key_public", kid], encryptedPublicKey);
-    await this.#kv.set(["key_private", kid], encryptedPrivateKey);
+    await this.#kv.set(this.#publicKeyKey(kid), encryptedPublicKey);
+    await this.#kv.set(this.#privateKeyKey(kid), encryptedPrivateKey);
   }
 
   async getPublicKey(kid: string): Promise<string | null> {
-    return (await this.#kv.get<string>(["key_public", kid])).value;
+    return (await this.#kv.get(this.#publicKeyKey(kid))).value;
   }
 
   async getPrivateKey(kid: string): Promise<string | null> {
-    return (await this.#kv.get<string>(["key_private", kid])).value;
+    return (await this.#kv.get(this.#privateKeyKey(kid))).value;
   }
 
   async getAllPublicKeys(): Promise<Array<{ kid: string; encryptedKey: string }>> {
 
     const results = [];
-    for await (const entry of this.#kv.list({ prefix: ["key_public"] })) {
+    for await (const entry of this.#kv.list({ prefix: ["lti", "key_public"] })) {
       if (entry.value) {
-        const kid = entry.key[1];
+        const kid = entry.key[2];
         results.push({ kid, encryptedKey: entry.value });
       }
     }
@@ -140,11 +156,11 @@ export class DenoKVStorage implements Storage {
   // -------------------------------------------------------------------------
 
   async saveIdToken(key: string, token: StoredIdToken, ttlMs: number): Promise<void> {
-    await this.#kv.set(["idtoken", key], token, { expireIn: ttlMs });
+    await this.#kv.set(["lti", "idtoken", key], token, { expireIn: ttlMs });
   }
 
   async getIdToken(key: string): Promise<StoredIdToken | null> {
-    return (await this.#kv.get(["idtoken", key])).value;
+    return (await this.#kv.get(["lti", "idtoken", key])).value;
   }
 
   // -------------------------------------------------------------------------
@@ -156,11 +172,11 @@ export class DenoKVStorage implements Storage {
     token: StoredContextToken,
     ttlMs: number,
   ): Promise<void> {
-    await this.#kv.set(["contexttoken", key], token, { expireIn: ttlMs });
+    await this.#kv.set(["lti", "contexttoken", key], token, { expireIn: ttlMs });
   }
 
   async getContextToken(key: string): Promise<StoredContextToken | null> {
-    return (await this.#kv.get<StoredContextToken>(["contexttoken", key])).value;
+    return (await this.#kv.get(["lti", "contexttoken", key])).value;
   }
 
   // -------------------------------------------------------------------------
@@ -168,11 +184,11 @@ export class DenoKVStorage implements Storage {
   // -------------------------------------------------------------------------
 
   async saveNonce(nonce: string, ttlMs: number): Promise<void> {
-    await this.#kv.set(["nonce", nonce], true, { expireIn: ttlMs });
+    await this.#kv.set(["lti", "nonce", nonce], true, { expireIn: ttlMs });
   }
 
   async hasNonce(nonce: string): Promise<boolean> {
-    return (await this.#kv.get(["nonce", nonce])).value !== null;
+    return (await this.#kv.get(["lti", "nonce", nonce])).value !== null;
   }
 
   // -------------------------------------------------------------------------
@@ -180,15 +196,15 @@ export class DenoKVStorage implements Storage {
   // -------------------------------------------------------------------------
 
   async saveState(state: string, data: OidcStateData, ttlMs: number): Promise<void> {
-    await this.#kv.set(["state", state], data, { expireIn: ttlMs });
+    await this.#kv.set(["lti", "state", state], data, { expireIn: ttlMs });
   }
 
   async getState(state: string): Promise<OidcStateData | null> {
-    return (await this.#kv.get<OidcStateData>(["state", state])).value;
+    return (await this.#kv.get(["lti", "state", state])).value;
   }
 
   async deleteState(state: string): Promise<void> {
-    await this.#kv.delete(["state", state]);
+    await this.#kv.delete(["lti", "state", state]);
   }
 
   // -------------------------------------------------------------------------
