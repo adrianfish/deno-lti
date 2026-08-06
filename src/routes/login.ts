@@ -50,7 +50,7 @@ export async function handleLogin(
   }
 
   // Look up platform
-  const platform = await service.getPlatform(iss, client_id);
+  const platform = await storage.getPlatform(iss, client_id);
   if (!platform) {
     return c.text(`Unregistered platform for url ${iss} and client_id ${client_id}`, 400);
   }

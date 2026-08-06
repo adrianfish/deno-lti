@@ -98,6 +98,8 @@ export async function validateToken(
     maxTokenAge: `${TOKEN_MAX_AGE_SEC}s`,
   });
 
+  console.log(payload);
+
   // -------------------------------------------------------------------------
   // OIDC validation
   // -------------------------------------------------------------------------

@@ -7,10 +7,11 @@ import { handleLogin } from "./routes/login.ts";
 import { handleRegisterPlatform } from "./routes/register-platform.ts";
 import { DenoKVStorage } from "./storage/denokv-storage.ts";
 import { GradeService } from "./services/grade.ts";
-import { GroupsService } from "./services/groups.ts";
+import { getGroups, GroupsService } from "./services/groups.ts";
 import { NamesAndRoleService } from "./services/nrps.ts";
+import { requestAccessToken } from "./services/oauth.ts";
 import { GRADING, GROUPS, ROSTER } from "./constants.ts";
-import { LTIService } from "./services/lti-service.ts";
+import { buildKeyId, LTIService } from "./services/lti-service.ts";
 import { createDeepLinkingForm, createDeepLinkingMessage } from "./services/deep-linking.ts";
 import { deriveAesKey } from "./crypto.ts";
 
@@ -78,9 +79,11 @@ export class DenoLTI {
     this.#storage = await DenoKVStorage.open();
     this.#options = options;
 
+    /*
     if (options.services?.includes(GRADING)) {
       this.grade = new GradeService(this.#storage, this.#aesKey);
     }
+    */
 
     this.#ltiService = new LTIService(options);
     this.#ltiService.storage = this.#storage;
@@ -91,9 +94,11 @@ export class DenoLTI {
       this.#nrps = new NamesAndRoleService(this.#storage, this.#aesKey, this.#ltiService);
     }
 
+    /*
     if (options.services?.includes(GROUPS)) {
       this.#groups = new GroupsService(this.#storage, this.#aesKey, this.#ltiService);
     }
+    */
 
     this.#buildRoutes();
     this.#ready = true;
@@ -178,7 +183,7 @@ export class DenoLTI {
   ): Promise<Array<Group> | null> {
 
     if (this.#options.services?.includes(GROUPS)) {
-      return this.#groups.getGroups(platformUrl, clientId, contextId, userId);
+      return getGroups(this.#storage, this.#ltiService.toolDomain, this.#aesKey, platformUrl, clientId, contextId, userId);
     }
 
     return null;
@@ -334,6 +339,20 @@ export class DenoLTI {
     return this;
   }
 
+  getProduct(ltiContext): string {
+
+    return ltiContext?.token?.platformContext?.toolPlatform?.product_family_code;
+
+  }
+
+  async getAccessToken(platformUrl: string, clientId: string, scopes: Array<string>): string {
+
+    const platform: Platform = await this.#storage.getPlatform(platformUrl, clientId);
+    const endpoint: string = platform.accesstokenEndpoint;
+    const kid = buildKeyId(platform);
+    return requestAccessToken(this.#ltiService.toolDomain, endpoint, platformUrl, clientId, kid, scopes, this.#storage, this.#aesKey);
+  }
+
   // ---------------------------------------------------------------------------
   // Hono app accessor — embed in a larger app
   // ---------------------------------------------------------------------------
@@ -402,25 +421,24 @@ export class DenoLTI {
     // -------------------------------------------------------------------------
     // Session middleware — covers all other routes
     // -------------------------------------------------------------------------
-    const sessionMiddleware: MiddlewareHandler = createSessionMiddleware({
-      nrps: this.#nrps,
-      groupsService: this.#groups,
-      storage: this.#storage,
-      secret: this.#secret,
-      ltiService: this.#ltiService,
-      launchCallback: this.#launchCallback,
-      deepLinkingCallback: this.#deepLinkingCallback,
-      onSessionTimeout: this.#sessionTimeoutCallback,
-      onInvalidToken: this.#invalidTokenCallback,
-      onUnregisteredPlatform: this.#unregisteredPlatformCallback,
-      onInactivePlatform: this.#inactivePlatformCallback,
-      devMode: this.#options.devMode,
-      debug: this.#options.debug,
-      cookieOptions: this.#options.cookies,
-      ltiRoute,
-    });
-
-    this.#app.use("*", sessionMiddleware);
+    this.#app.use("*", createSessionMiddleware({
+        nrps: this.#nrps,
+        storage: this.#storage,
+        secret: this.#secret,
+        aesKey: this.#aesKey,
+        toolDomain: this.#ltiService.toolDomain,
+        launchCallback: this.#launchCallback,
+        deepLinkingCallback: this.#deepLinkingCallback,
+        onSessionTimeout: this.#sessionTimeoutCallback,
+        onInvalidToken: this.#invalidTokenCallback,
+        onUnregisteredPlatform: this.#unregisteredPlatformCallback,
+        onInactivePlatform: this.#inactivePlatformCallback,
+        devMode: this.#options.devMode,
+        debug: this.#options.debug,
+        cookieOptions: this.#options.cookies,
+        ltiRoute,
+        services: this.#options.services,
+      }));
   }
 
   #assertReady(): void {

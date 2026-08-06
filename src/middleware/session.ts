@@ -11,9 +11,10 @@
 
 import { getCookie, getSignedCookie, setCookie, setSignedCookie } from "hono/cookie";
 import { NamesAndRoleService } from "../services/nrps.ts";
-import { GroupsService } from "../services/groups.ts";
+import { ensureGroupsCached } from "../services/groups.ts";
 import { validateToken } from "../auth/tokens.ts";
 import { signLtik, verifyLtik } from "../auth/tokens.ts";
+import { GRADING, GROUPS, ROSTER } from "../constants.ts";
 import { randomHex } from "../auth/keys.ts";
 import { LTIService } from "../services/lti-service.ts";
 import { DEEP_LINKING, RESOURCE_LINK } from "../messages.ts";
@@ -27,11 +28,11 @@ const IDTOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const CONTEXT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 interface SessionMiddlewareOptions {
-  nrps: NamesAndRoleService;
-  groupsService: GroupsService;
   storage: Storage;
+  nrps: NamesAndRoleService;
   secret: string;
-  ltiService: LTIService;
+  aesKey: string;
+  toolDomain: string;
   launchCallback: LTIHandler;
   deepLinkingCallback: LTIHandler;
   onSessionTimeout: ErrorHandler;
@@ -42,6 +43,7 @@ interface SessionMiddlewareOptions {
   debug?: boolean;
   cookieOptions?: CookieOptions;
   ltiRoute: string;
+  services?: Array<string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,11 +53,11 @@ interface SessionMiddlewareOptions {
 export function createSessionMiddleware(opts: SessionMiddlewareOptions): MiddlewareHandler {
 
   const {
-    nrps,
-    groupsService,
     storage,
+    nrps,
     secret,
-    ltiService,
+    aesKey,
+    toolDomain,
     launchCallback,
     deepLinkingCallback,
     onSessionTimeout,
@@ -66,6 +68,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
     debug = false,
     cookieOptions = {},
     ltiRoute,
+    services = [],
   } = opts;
 
   const sameSite = cookieOptions.sameSite ?? "Lax";
@@ -185,7 +188,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       await storage.deleteState(state);
 
       // Look up platform
-      const platform = await ltiService.getPlatform(stateData.iss, stateData.clientId as string);
+      const platform = await storage.getPlatform(stateData.iss, stateData.clientId as string);
       if (!platform) return onUnregisteredPlatform(c);
       if (!platform.active) return onInactivePlatform(c);
 
@@ -249,15 +252,22 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       });
       */
 
-      if (nrps) {
+      if (contextToken.namesRoles && nrps) {
         console.debug("Kicking off members caching ...");
         nrps.ensureMembersCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
       }
 
-      if (groupsService) {
+      if (contextToken.groups && services?.includes(GROUPS)) {
+        console.debug("Kicking off groups caching ...");
+        //this.#groups = new GroupsService(this.#storage, this.#aesKey, this.#ltiService);
+        ensureGroupsCached(storage, toolDomain, aesKey, idToken.iss, idToken.clientId, contextToken.contextId, userId);
+      }
+      /*
+      if (contextToken.groups && groupsService) {
         console.debug("Kicking off groups caching ...");
         groupsService.ensureGroupsCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
       }
+      */
 
       // Redirect to target with ltik
       const targetUri = contextToken.targetLinkUri || "/";

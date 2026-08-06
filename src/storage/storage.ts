@@ -23,10 +23,6 @@ export interface Storage {
 
   getPlatform(url: string, clientId: string): Promise<Platform | null>;
 
-  getPlatformsByUrl(url: string): Promise<Array<Platform>>;
-
-  getAllPlatforms(): Promise<Array<Platform>>;
-
   setPlatformActive(url: string, clientId: string, active: boolean): Promise<void>;
 
   saveKeyPair(

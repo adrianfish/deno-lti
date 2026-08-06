@@ -7,6 +7,7 @@ import { requestAccessToken } from "./oauth.ts";
 import { buildFilter } from "../utils/filters.ts";
 import { LMS_EXTENSIONS } from "./platform/extensions.ts";
 import { ENRICHMENT_FIELDS } from "./platform/enrichment-fields.ts";
+import { buildKeyId } from "./lti-service.ts";
 
 import type { DenoLTI } from "../deno-lti.ts";
 import type { MemberPage, Storage } from "../storage/storage.ts";
@@ -76,7 +77,7 @@ export class NamesAndRoleService {
     const contextToken: StoredContextToken = await this.#storage.getContextToken(`${contextId}${user}`);
     const productFamilyCode = contextToken?.toolPlatform?.product_family_code;
     if (!accessToken && !membershipsUrl && platformUrl && clientId) {
-      const platform: Platform = await this.#ltiService.getPlatform(platformUrl, clientId);
+      const platform: Platform = await this.#storage.getPlatform(platformUrl, clientId);
 
       if (!platform) return null;
 
@@ -89,7 +90,7 @@ export class NamesAndRoleService {
         platform.accesstokenEndpoint,
         platformUrl,
         clientId,
-        this.#ltiService.buildKeyId(platform),
+        buildKeyId(platform),
         requestedScopes,
         this.#storage,
         this.#aesKey,

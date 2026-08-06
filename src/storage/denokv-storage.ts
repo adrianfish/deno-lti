@@ -92,24 +92,6 @@ export class DenoKVStorage implements Storage {
     return (await this.#kv.get(this.#platformKey(url, clientId))).value;
   }
 
-  async getPlatformsByUrl(url: string): Promise<Platform[]> {
-
-    const results = [];
-    for await (const entry of this.#kv.list({ prefix: ["lti", "platform", url] })) {
-      if (entry.value) results.push(entry.value);
-    }
-    return results;
-  }
-
-  async getAllPlatforms(): Promise<Platform[]> {
-
-    const results = [];
-    for await (const entry of this.#kv.list({ prefix: ["lti", "platform"] })) {
-      if (entry.value) results.push(entry.value);
-    }
-    return results;
-  }
-
   async setPlatformActive(url: string, clientId: string, active: boolean): Promise<void> {
 
     const platform = await this.getPlatform(url, clientId);
@@ -225,6 +207,9 @@ export class DenoKVStorage implements Storage {
     clientId: string,
     requestedScopes: string,
   ): Promise<StoredAccessToken | null> {
+
+    console.log(platformUrl);
+    console.log(clientId);
 
     const entry = await this.#kv.get(this.#accessTokenKey(platformUrl, clientId, requestedScopes));
     if (!entry.value) return null;

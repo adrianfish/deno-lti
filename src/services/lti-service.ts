@@ -14,7 +14,6 @@ export class LTIService {
   }
 
   set aesKey(aesKey: CryptoKey) { this.#aesKey = aesKey; }
-  //set toolDomain(toolDomain: string) { this.toolDomain = toolDomain; }
   set storage(storage: Storage) { this.#storage = storage; }
 
   async registerPlatform(platform: Platform): Promise<Platform> {
@@ -24,26 +23,12 @@ export class LTIService {
       return existing;
     }
 
-    const kid = this.buildKeyId(platform);
+    const kid = buildKeyId(platform);
     if (this.#options.debug) console.debug(`KID: ${kid}`);
     await generateAndStorePlatformKeyPair(kid, this.#storage, this.#aesKey);
 
     await this.#storage.savePlatform(platform);
     return platform;
-  }
-
-  async getPlatform(url: string, clientId?: string): Promise<Platform | null> {
-
-    if (clientId) return await this.#storage.getPlatform(url, clientId);
-    const platforms: Platform[] = await this.#storage.getPlatformsByUrl(url);
-    if (platforms.length) return platforms[0];
-
-    console.warn(`No platform found for url ${url} and clientId ${clientId}`);
-    return null;
-  }
-
-  async getPlatforms(url: string): Promise<Platform[] | null> {
-    return await this.#storage.getPlatformsByUrl(url);
   }
 
   /**
@@ -58,6 +43,6 @@ export class LTIService {
   async deletePlatform(url: string, clientId: string): Promise<void> {
     await this.#storage.setPlatformActive(url, clientId, false);
   }
-
-  buildKeyId = (platform: Platform): string => `${platform.url}\$\$${platform.clientId}`;
 }
+
+export const buildKeyId = (platform: Platform): string => `${platform.url}\$\$${platform.clientId}`;

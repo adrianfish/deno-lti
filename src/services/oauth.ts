@@ -21,6 +21,8 @@ export async function getAccessToken(
 ): Promise<string> {
   const scopeStr = scopes.sort().join(" ");
 
+  console.log(token);
+
   // Try cache first
   const cached = await storage.getAccessToken(token.iss, token.clientId, scopeStr);
   if (cached) return cached.token;

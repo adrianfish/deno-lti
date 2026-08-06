@@ -107,7 +107,6 @@ export async function handleRegisterPlatform(
     );
   }
 
-
   const data = {
     "application_type": "web",
     "response_types": ["id_token"],
