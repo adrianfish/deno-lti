@@ -28,48 +28,20 @@ export async function ensureGroupsCached(
   await primeGroupsCache(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId);
 }
 
-async function primeGroupsCache(
-    storage: Storage,
-    toolDomain: string,
-    aesKey: string,
-    platformUrl: string,
-    clientId: string,
-    contextId: string,
-    userId: string,
-): Promise<void> {
+export async function getGroups(
+  storage: Storage,
+  toolDomain: string,
+  aesKey: string,
+  platformUrl: string,
+  clientId: string,
+  contextId: string,
+  userId: string,
+): Promise<Array<Group>> {
 
-  if (await storage.isGroupsCaching(clientId, contextId)) {
-    // Another request is already filling the cache; wait until at least the first page is in.
-    return;
-  }
+  await ensureGroupsCached(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId);
 
-  storage.setGroupsCaching(clientId, contextId);
-
-  console.debug(`Getting first page of members for clientId ${clientId} and contextId ${contextId} ...`);
-  const first = await loadGroups(storage, toolDomain, aesKey, null, null, platformUrl, clientId, contextId, userId);
-  if (!first) return;
-  await persistGroups(storage, clientId, contextId, first.groups);
-
-  if (!first.next) {
-    storage.unsetGroupsCaching(clientId, contextId);
-    return;
-  }
-
-  let pageUrl: string | undefined = first.next;
-  let accessToken: string | undefined = first.accessToken;
-  let page = 2;
-  while (pageUrl) {
-    const result = await loadGroups(storage, toolDomain, aesKey, pageUrl, accessToken, null, null, null, null);
-    if (!result) break;
-    await persistGroups(storage, clientId, contextId, result.groups);
-    console.debug(`Drained groups page ${page} for clientId ${clientId} and contextId ${contextId}`);
-    pageUrl = result.next;
-    accessToken = result.accessToken;
-    page++;
-  }
-  storage.unsetGroupsCaching(clientId, contextId);
+  return await storage.getGroups(clientId, contextId);
 }
-
 
 /**
  * Loads groups from the LTI Course Groups Service. This can be called in two ways. The first way
@@ -88,7 +60,7 @@ async function primeGroupsCache(
  *
  * @return {object} A js object with the groups
  */
-export async function loadGroups(
+async function loadGroups(
   storage: Storage,
   toolDomain: string,
   aesKey: string,
@@ -162,6 +134,48 @@ export async function loadGroups(
     });
 }
 
+async function primeGroupsCache(
+    storage: Storage,
+    toolDomain: string,
+    aesKey: string,
+    platformUrl: string,
+    clientId: string,
+    contextId: string,
+    userId: string,
+): Promise<void> {
+
+  if (await storage.isGroupsCaching(clientId, contextId)) {
+    // Another request is already filling the cache; wait until at least the first page is in.
+    return;
+  }
+
+  storage.setGroupsCaching(clientId, contextId);
+
+  console.debug(`Getting first page of members for clientId ${clientId} and contextId ${contextId} ...`);
+  const first = await loadGroups(storage, toolDomain, aesKey, null, null, platformUrl, clientId, contextId, userId);
+  if (!first) return;
+  await persistGroups(storage, clientId, contextId, first.groups);
+
+  if (!first.next) {
+    storage.unsetGroupsCaching(clientId, contextId);
+    return;
+  }
+
+  let pageUrl: string | undefined = first.next;
+  let accessToken: string | undefined = first.accessToken;
+  let page = 2;
+  while (pageUrl) {
+    const result = await loadGroups(storage, toolDomain, aesKey, pageUrl, accessToken, null, null, null, null);
+    if (!result) break;
+    await persistGroups(storage, clientId, contextId, result.groups);
+    console.debug(`Drained groups page ${page} for clientId ${clientId} and contextId ${contextId}`);
+    pageUrl = result.next;
+    accessToken = result.accessToken;
+    page++;
+  }
+  storage.unsetGroupsCaching(clientId, contextId);
+}
+
 async function persistGroups(
   storage: Storage,
   clientId: string,
@@ -170,19 +184,4 @@ async function persistGroups(
 ): Promise<void> {
 
   for (const g: Group of groups) await storage.setGroup(clientId, contextId, g);
-}
-
-export async function getGroups(
-  storage: Storage,
-  toolDomain: string,
-  aesKey: string,
-  platformUrl: string,
-  clientId: string,
-  contextId: string,
-  userId: string,
-): Promise<Array<Group>> {
-
-  await ensureGroupsCached(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId);
-
-  return await storage.getGroups(clientId, contextId);
 }
