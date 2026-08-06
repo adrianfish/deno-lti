@@ -10,7 +10,7 @@
  */
 
 import { getCookie, getSignedCookie, setCookie, setSignedCookie } from "hono/cookie";
-import { NamesAndRoleService } from "../services/nrps.ts";
+import { ensureMembersCached } from "../services/nrps.ts";
 import { ensureGroupsCached } from "../services/groups.ts";
 import { validateToken } from "../auth/tokens.ts";
 import { signLtik, verifyLtik } from "../auth/tokens.ts";
@@ -29,9 +29,8 @@ const CONTEXT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 interface SessionMiddlewareOptions {
   storage: Storage;
-  nrps: NamesAndRoleService;
   secret: string;
-  aesKey: string;
+  aesKey: CryptoKey;
   toolDomain: string;
   launchCallback: LTIHandler;
   deepLinkingCallback: LTIHandler;
@@ -54,7 +53,6 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
 
   const {
     storage,
-    nrps,
     secret,
     aesKey,
     toolDomain,
@@ -252,23 +250,15 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       });
       */
 
-      if (contextToken.namesRoles && nrps) {
+      if (contextToken.namesRoles && services?.includes(ROSTER)) {
         console.debug("Kicking off members caching ...");
-        nrps.ensureMembersCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
+        ensureMembersCached(storage, toolDomain, aesKey, idToken.iss, idToken.clientId, contextToken.contextId, userId);
       }
 
       if (contextToken.groups && services?.includes(GROUPS)) {
         console.debug("Kicking off groups caching ...");
-        //this.#groups = new GroupsService(this.#storage, this.#aesKey, this.#ltiService);
         ensureGroupsCached(storage, toolDomain, aesKey, idToken.iss, idToken.clientId, contextToken.contextId, userId);
       }
-      /*
-      if (contextToken.groups && groupsService) {
-        console.debug("Kicking off groups caching ...");
-        groupsService.ensureGroupsCached(idToken.iss, idToken.clientId, contextToken.contextId, userId);
-      }
-      */
-
       // Redirect to target with ltik
       const targetUri = contextToken.targetLinkUri || "/";
       const redirectUrl = new URL(

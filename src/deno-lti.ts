@@ -7,8 +7,8 @@ import { handleLogin } from "./routes/login.ts";
 import { handleRegisterPlatform } from "./routes/register-platform.ts";
 import { DenoKVStorage } from "./storage/denokv-storage.ts";
 import { GradeService } from "./services/grade.ts";
-import { getGroups, GroupsService } from "./services/groups.ts";
-import { NamesAndRoleService } from "./services/nrps.ts";
+import { getCachedRoleTotals, getPageOfMembers, isMembersCacheBuilding } from "./services/nrps.ts";
+import { getGroups } from "./services/groups.ts";
 import { requestAccessToken } from "./services/oauth.ts";
 import { GRADING, GROUPS, ROSTER } from "./constants.ts";
 import { buildKeyId, LTIService } from "./services/lti-service.ts";
@@ -25,7 +25,6 @@ export class DenoLTI {
   #app = new Hono();
   #storage!: Storage;
   #nrps!: NamesAndRoleService;
-  #groups!: GroupsService;
   #ltiService!: LTIService;
   #secret!: string;
   #clientName!: string;
@@ -79,26 +78,14 @@ export class DenoLTI {
     this.#storage = await DenoKVStorage.open();
     this.#options = options;
 
-    /*
     if (options.services?.includes(GRADING)) {
       this.grade = new GradeService(this.#storage, this.#aesKey);
     }
-    */
 
     this.#ltiService = new LTIService(options);
     this.#ltiService.storage = this.#storage;
     this.#ltiService.aesKey = this.#aesKey;
     this.#ltiService.toolDomain = toolDomain;
-
-    if (options.services?.includes(ROSTER)) {
-      this.#nrps = new NamesAndRoleService(this.#storage, this.#aesKey, this.#ltiService);
-    }
-
-    /*
-    if (options.services?.includes(GROUPS)) {
-      this.#groups = new GroupsService(this.#storage, this.#aesKey, this.#ltiService);
-    }
-    */
 
     this.#buildRoutes();
     this.#ready = true;
@@ -137,7 +124,7 @@ export class DenoLTI {
   ): Promise<MemberPage | null> {
 
     if (this.#options.services?.includes(ROSTER)) {
-      return this.#nrps.getPageOfMembers(platformUrl, clientId, contextId, userId, startNum, lengthNum, filter);
+      return getPageOfMembers(this.#storage, this.#ltiService.toolDomain, this.#aesKey, platformUrl, clientId, contextId, userId, startNum, lengthNum, filter);
     }
 
     return null;
@@ -157,7 +144,7 @@ export class DenoLTI {
   ): Promise<boolean> {
 
     if (this.#options.services?.includes(ROSTER)) {
-      return await this.#nrps.isMembersCacheBuilding(clientId, contextId);
+      return await isMembersCacheBuilding(this.#storage, clientId, contextId);
     }
 
     return false;
@@ -203,7 +190,7 @@ export class DenoLTI {
   ): Promise<Record<string, string> | null> {
 
     if (this.#options.services?.includes(ROSTER)) {
-      return this.#nrps.getCachedRoleTotals(clientId, contextId);
+      return getCachedRoleTotals(this.#storage, clientId, contextId);
     }
 
     return null;
@@ -422,7 +409,6 @@ export class DenoLTI {
     // Session middleware — covers all other routes
     // -------------------------------------------------------------------------
     this.#app.use("*", createSessionMiddleware({
-        nrps: this.#nrps,
         storage: this.#storage,
         secret: this.#secret,
         aesKey: this.#aesKey,
