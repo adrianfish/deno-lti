@@ -6,7 +6,6 @@ import { createSessionMiddleware } from "./middleware/session.ts";
 import { handleLogin } from "./routes/login.ts";
 import { handleRegisterPlatform } from "./routes/register-platform.ts";
 import { DenoKVStorage } from "./storage/denokv-storage.ts";
-import { GradeService } from "./services/grade.ts";
 import { getCachedRoleTotals, getPageOfMembers, isMembersCacheBuilding } from "./services/nrps.ts";
 import { getGroups } from "./services/groups.ts";
 import { requestAccessToken } from "./services/oauth.ts";
@@ -24,7 +23,6 @@ export class DenoLTI {
 
   #app = new Hono();
   #storage!: Storage;
-  #nrps!: NamesAndRoleService;
   #ltiService!: LTIService;
   #secret!: string;
   #clientName!: string;
@@ -78,10 +76,6 @@ export class DenoLTI {
     this.#storage = await DenoKVStorage.open();
     this.#options = options;
 
-    if (options.services?.includes(GRADING)) {
-      this.grade = new GradeService(this.#storage, this.#aesKey);
-    }
-
     this.#ltiService = new LTIService(options);
     this.#ltiService.storage = this.#storage;
     this.#ltiService.aesKey = this.#aesKey;
@@ -95,9 +89,6 @@ export class DenoLTI {
   // ---------------------------------------------------------------------------
   // Public services (available after setup())
   // ---------------------------------------------------------------------------
-
-  grade!: GradeService;
-  groups!: GroupsService;
 
   /**
    * Returns a page of members from the roster service. If the cache is hot, this will be very

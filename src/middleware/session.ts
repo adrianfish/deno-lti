@@ -259,6 +259,12 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
         console.debug("Kicking off groups caching ...");
         ensureGroupsCached(storage, toolDomain, aesKey, idToken.iss, idToken.clientId, contextToken.contextId, userId);
       }
+
+      if (contextToken.grades && services?.includes(GRADING)) {
+        console.debug("Grading  ...");
+        // Cache the line items?
+      }
+
       // Redirect to target with ltik
       const targetUri = contextToken.targetLinkUri || "/";
       const redirectUrl = new URL(

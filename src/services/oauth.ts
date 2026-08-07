@@ -19,9 +19,8 @@ export async function getAccessToken(
   storage: Storage,
   aesKey: CryptoKey,
 ): Promise<string> {
-  const scopeStr = scopes.sort().join(" ");
 
-  console.log(token);
+  const scopeStr = scopes.sort().join(" ");
 
   // Try cache first
   const cached = await storage.getAccessToken(token.iss, token.clientId, scopeStr);

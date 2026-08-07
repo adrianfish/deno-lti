@@ -98,8 +98,6 @@ export async function validateToken(
     maxTokenAge: `${TOKEN_MAX_AGE_SEC}s`,
   });
 
-  console.log(payload);
-
   // -------------------------------------------------------------------------
   // OIDC validation
   // -------------------------------------------------------------------------
@@ -141,7 +139,8 @@ export async function validateToken(
   const namesRoles = payload["https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice"] as
     | Record<string, unknown>
     | undefined;
-  const groups = payload["https://purl.imsglobal.org/spec/lti-gs/claim/groupsservice"] as | Record<string, string> | undefined;
+  const groups = payload["https://purl.imsglobal.org/spec/lti-gs/claim/groupsservice"] as | Record<string, Array<string> | string> | undefined;
+  const grades = payload["https://purl.imsglobal.org/spec/lti-ags/claim/endpoint"] as | Record<string, Array<string> | string> | undefined;
   const deepLinkingSettings = payload["https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings"] as
     | Record<string, unknown>
     | undefined;
@@ -187,6 +186,7 @@ export async function validateToken(
     endpoint,
     namesRoles,
     groups,
+    grades,
   };
 
   if (contextToken.messageType === DEEP_LINKING) {

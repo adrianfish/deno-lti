@@ -208,9 +208,6 @@ export class DenoKVStorage implements Storage {
     requestedScopes: string,
   ): Promise<StoredAccessToken | null> {
 
-    console.log(platformUrl);
-    console.log(clientId);
-
     const entry = await this.#kv.get(this.#accessTokenKey(platformUrl, clientId, requestedScopes));
     if (!entry.value) return null;
     if (entry.value.expiresAt < Date.now()) return null;

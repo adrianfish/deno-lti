@@ -59,7 +59,8 @@ export interface StoredContextToken {
   lis: Record<string, unknown>;
   endpoint?: Record<string, unknown>;
   namesRoles?: Record<string, unknown>;
-  groups?: Record<string, string>;
+  groups?: Record<string, Array<string> | string>;
+  grades?: Record<string, Array<string> | string>;
   /** tool_platform claim — `product_family_code` identifies the LMS. */
   toolPlatform?: Record<string, string>;
 }
