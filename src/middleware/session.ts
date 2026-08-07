@@ -12,6 +12,7 @@
 import { getCookie, getSignedCookie, setCookie, setSignedCookie } from "hono/cookie";
 import { ensureMembersCached } from "../services/nrps.ts";
 import { ensureGroupsCached } from "../services/groups.ts";
+import { ensureLineItemsCached } from "../services/grade.ts";
 import { validateToken } from "../auth/tokens.ts";
 import { signLtik, verifyLtik } from "../auth/tokens.ts";
 import { GRADING, GROUPS, ROSTER } from "../constants.ts";
@@ -261,8 +262,8 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
       }
 
       if (contextToken.grades && services?.includes(GRADING)) {
-        console.debug("Grading  ...");
-        // Cache the line items?
+        console.debug("Kicking off line item caching ...");
+        ensureLineItemsCached(storage, toolDomain, aesKey, idToken.iss, idToken.clientId, contextToken.contextId, userId);
       }
 
       // Redirect to target with ltik

@@ -169,3 +169,13 @@ export interface Group {
   name: string;
   tag: string;
 }
+
+export interface LineItem {
+  id?: string;
+  scoreMaximum: number;
+  label: string;
+  resourceId?: string;
+  tag?: string;
+  resourceLinkId?: string;
+  [key: string]: unknown;
+}

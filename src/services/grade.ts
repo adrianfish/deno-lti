@@ -1,20 +1,11 @@
 /**
  * Assignment and Grade Service (AGS) — LTI 1.3
  */
+import { requestAccessToken } from "./oauth.ts";
+import { buildKeyId } from "./lti-service.ts";
 
 import type { Storage } from "../storage/storage.ts";
-import type { LTIToken } from "../types.ts";
-import { getAccessToken } from "./oauth.ts";
-
-export interface LineItem {
-  id?: string;
-  scoreMaximum: number;
-  label: string;
-  resourceId?: string;
-  tag?: string;
-  resourceLinkId?: string;
-  [key: string]: unknown;
-}
+import type { LineItem, LTIToken, Platform } from "../types.ts";
 
 export interface Score {
   userId: string;
@@ -39,33 +30,91 @@ const AGS_SCOPE_LINEITEM_RO = "https://purl.imsglobal.org/spec/lti-ags/scope/lin
 const AGS_SCOPE_SCORE = "https://purl.imsglobal.org/spec/lti-ags/scope/score";
 const AGS_SCOPE_RESULT_RO = "https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly";
 
-/** Get all line items for the current context, following pagination. */
-export async getLineItems(
+export async function ensureLineItemsCached(
   storage: Storage,
+  toolDomain: string,
+  aesKey: string,
+  platformUrl: string,
+  clientId: string,
+  contextId: string,
+  userId: string,
+): Promise<void> {
+
+  if (await storage.hasAnyLineItems(clientId, contextId)) {
+    console.debug(`Line items already cached for clientId ${clientId}, contextId ${contextId}`);
+    return;
+  }
+
+  const items: LineItem[] = await loadLineItems(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId);
+  items.forEach(item => storage.setLineItem(clientId, contextId, item));
+}
+
+export async function getLineItems(
+  storage: Storage,
+  toolDomain: string,
   aesKey: CryptoKey,
-  token: LTIToken,
+  platformUrl: string,
+  clientId: string,
+  contextId: string,
+  userId: string,
+): Promise<LineItem[]> {
+
+  await ensureLineItemsCached(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId);
+  return storage.getLineItems(clientId, contextId);
+}
+
+
+/** Get all line items for the current context, following pagination. */
+async function loadLineItems(
+  storage: Storage,
+  toolDomain: string,
+  aesKey: CryptoKey,
+  platformUrl: string,
+  clientId: string,
+  contextId: string,
+  userId: string,
   options?: { resourceId?: string; tag?: string },
 ): Promise<LineItem[]> {
 
-  const endpoint = token.platformContext.endpoint;
-  if (!endpoint?.lineitems) throw new Error("No lineitems endpoint in context");
+  const contextToken: StoredContextToken = await storage.getContextToken(`${contextId}${userId}`);
 
-  const accessToken = await getAccessToken(
-    token,
-    [AGS_SCOPE_LINEITEM_RO, AGS_SCOPE_LINEITEM],
+  if (!platformUrl || !clientId) {
+    console.error("platformUrl and clientId must be supplied");
+    return  [];
+  }
+
+  const platform: Platform = await storage.getPlatform(platformUrl, clientId);
+  if (!platform) return null;
+
+  let url;
+  try {
+    url = new URL(contextToken?.grades?.lineitems);
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+
+  const requestedScopes = [ AGS_SCOPE_LINEITEM_RO, AGS_SCOPE_LINEITEM ];
+
+  const accessToken = await requestAccessToken(
+    toolDomain,
+    platform.accesstokenEndpoint,
+    platformUrl,
+    clientId,
+    buildKeyId(platform),
+    requestedScopes,
     storage,
     aesKey,
   );
 
-  const url = new URL(endpoint.lineitems as string);
   if (options?.resourceId) url.searchParams.set("resource_id", options.resourceId);
   if (options?.tag) url.searchParams.set("tag", options.tag);
 
-  return fetchAllPages(url.toString(), accessToken, "application/vnd.ims.lis.v2.lineitemcontainer+json");
+  return await fetchAllPages(url.toString(), accessToken, "application/vnd.ims.lis.v2.lineitemcontainer+json");
 }
 
 /** Create a new line item. */
-export async createLineItem(
+export async function createLineItem(
   storage: Storage,
   aesKey: CryptoKey,
   token: LTIToken,
@@ -96,7 +145,7 @@ export async createLineItem(
 }
 
 /** Post a score to a line item. */
-export async postScore(
+export async function postScore(
   storage: Storage,
   aesKey: CryptoKey,
   token: LTIToken,
@@ -128,7 +177,7 @@ export async postScore(
 }
 
 /** Get results for a line item, following pagination. */
-export async getResults(
+export async function getResults(
   storage: Storage,
   aesKey: CryptoKey,
   token: LTIToken,
@@ -146,7 +195,7 @@ export async getResults(
   return fetchAllPages(resultsUrl, accessToken, "application/vnd.ims.lis.v2.resultcontainer+json");
 }
 
-async fetchAllPages(
+async function fetchAllPages(
   url: string,
   accessToken: string,
   accept: string,
@@ -165,7 +214,7 @@ async fetchAllPages(
     if (!res.ok) throw new Error(`AGS request failed: ${res.status} ${await res.text()}`);
 
     const data = await res.json();
-    all.push(...(Array.isArray(data) ? data : [data]));
+    all.push(...(Array.isArray(data) ? data : [ data ]));
 
     // Follow RFC 5988 Link: <url>; rel="next" header
     nextUrl = parseNextLink(res.headers.get("link"));

@@ -1,5 +1,5 @@
 import type { GroupTotals, MemberPage, Storage } from "./storage.ts";
-import type { OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
+import type { LineItem, OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
 const LIST_CHUNK = 200;
 
@@ -74,6 +74,10 @@ export class DenoKVStorage implements Storage {
 
   #groupsCachingKey(clientId: string, contextId: string): Deno.KvKey {
     return [ "lti", "groups-caching", clientId, contextId ];
+  }
+
+  #lineItemsPrefix(clientId: string, contextId: string): Deno.KvKey {
+    return [ "lti", "line-items", clientId, contextId ];
   }
 
   #platformKey(url: string, clientId: string): Deno.KvKey {
@@ -406,6 +410,40 @@ export class DenoKVStorage implements Storage {
     }
 
     return groups;
+  }
+
+  async hasAnyLineItems(clientId: string, contextId: string): Promise<boolean> {
+
+    // Try and get one user
+    const iter = this.#kv.list({ prefix: this.#lineItemsPrefix(clientId, contextId) }, { limit: 1 });
+    for await (const _ of iter) return true;
+    return false;
+  }
+
+  async setLineItem(clientId: string, contextId: string, item: LineItem): Promise<boolean> {
+
+    let id = item.id;
+    const index = id.lastIndexOf("/");
+    if (index !== -1) id = id.substring(index + 1);
+
+    const expireIn: number = 15 * 60 * 1000;
+    return (await this.#kv.set([ ...this.#lineItemsPrefix(clientId, contextId), id ], item, { expireIn })).ok;
+  }
+
+  async getLineItems(clientId: string, contextId: string): Promise<LineItem[]> {
+
+    const items = [];
+    let cursor: string | undefined;
+    const prefix = this.#lineItemsPrefix(clientId, contextId);
+
+    while (true) {
+      const iter = this.#kv.list({ prefix }, { cursor, limit: LIST_CHUNK });
+      for await (const entry of iter) {
+        items.push(entry.value);
+      }
+      cursor = iter.cursor || undefined;
+      if (!cursor) break;
+    }
   }
 
   close(): void {
