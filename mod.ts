@@ -1,8 +1,6 @@
 /**
  * deno-lti — LTI 1.3 tool for Deno + Hono
  *
- * Zero Node.js dependencies. Uses Deno KV for storage by default.
- *
  * Quick start:
  *
  * <pre><code>

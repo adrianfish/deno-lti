@@ -5,9 +5,9 @@
 import { HTTPHeaderLink, HTTPHeaderLinkEntry } from "@hugoalh/http-header-link";
 import { requestAccessToken } from "./oauth.ts";
 import { buildFilter } from "../utils/filters.ts";
-import { LMS_EXTENSIONS } from "./platform/extensions.ts";
-import { ENRICHMENT_FIELDS } from "./platform/enrichment-fields.ts";
-import { buildKeyId } from "./lti-service.ts";
+import { LMS_EXTENSIONS } from "./extensions.ts";
+import { ENRICHMENT_FIELDS } from "./enrichment-fields.ts";
+import { buildKeyId } from "../utils/platform-utils.ts";
 
 import type { MemberPage, Storage } from "../storage/storage.ts";
 import type { Platform, StoredContextToken } from "../types.ts";

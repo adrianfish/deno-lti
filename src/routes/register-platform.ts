@@ -1,17 +1,18 @@
-import { ENRICHMENT_FIELDS } from "../services/platform/enrichment-fields.ts";
+import { ENRICHMENT_FIELDS } from "../services/enrichment-fields.ts";
 import { DEEPLINKING, GRADING, ROSTER  } from "../constants.ts";
 import { DEEP_LINKING, RESOURCE_LINK  } from "../messages.ts";
+import { registerPlatform } from "../utils/platform-utils.ts";
 
 import type { Context } from "hono";
 import type { Platform, ToolOptions } from "../types.ts";
 import type { Storage } from "../storage/storage.ts";
-import type { LTIService } from "../services/lti-service.ts";
-import type { EnrichmentField } from "../services/platform/enrichment-fields.ts";
+import type { EnrichmentField } from "../services/enrichment-fields.ts";
 
 export async function handleRegisterPlatform(
   c: Context,
   storage: Storage,
-  service: LTIService,
+  toolDomain: string,
+  aesKey: CryptoKey,
   clientName: string,
   description: string,
   logoUri: string,
@@ -76,6 +77,7 @@ export async function handleRegisterPlatform(
 
   if (options.services?.includes?.(DEEPLINKING)) {
     scopesRequested.push("https://purl.imsglobal.org/spec/lti-ags/scope/lineitem");
+    scopesRequested.push("https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly");
   }
 
   if (options.services?.includes?.(ROSTER)) {
@@ -84,12 +86,13 @@ export async function handleRegisterPlatform(
 
   if (options.services?.includes?.(GRADING)) {
     scopesRequested.push("https://purl.imsglobal.org/spec/lti-ags/scope/score");
+    scopesRequested.push("https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly");
   }
 
   const messages = [
     {
       "type": RESOURCE_LINK,
-      "target_link_uri": `https://${service.toolDomain}/lti`,
+      "target_link_uri": `https://${toolDomain}/lti`,
       "placements": [ "course_navigation", "https://canvas.instructure.com/lti/course_navigation" ],
       "https://canvas.instructure.com/lti/course_navigation/default_enabled": true,
       "https://canvas.instructure.com/lti/display_type": "full_width_in_context",
@@ -100,7 +103,7 @@ export async function handleRegisterPlatform(
     messages.push(
       {
         "type": DEEP_LINKING,
-        "target_link_uri": `https://${service.toolDomain}/lti`,
+        "target_link_uri": `https://${toolDomain}/lti`,
         "label": "Add a language",
         "placements": [ "https://canvas.instructure.com/lti/assignment_selection" ],
       }
@@ -111,17 +114,17 @@ export async function handleRegisterPlatform(
     "application_type": "web",
     "response_types": ["id_token"],
     "grant_types": ["implicit", "client_credentials"],
-    "initiate_login_uri": `https://${service.toolDomain}/lti/login`,
-    "redirect_uris": [`https://${service.toolDomain}/lti`],
+    "initiate_login_uri": `https://${toolDomain}/lti/login`,
+    "redirect_uris": [`https://${toolDomain}/lti`],
     "client_name": clientName,
     "logo_uri": logoUri,
-    "jwks_uri": `https://${service.toolDomain}/lti/keys`,
+    "jwks_uri": `https://${toolDomain}/lti/keys`,
     "token_endpoint_auth_method": "private_key_jwt",
     "scope": scopesRequested.join(" "),
     "https://purl.imsglobal.org/spec/lti-tool-configuration": {
-      "domain": service.toolDomain,
+      "domain": toolDomain,
       "description": description,
-      "target_link_uri": `https://${service.toolDomain}/lti`,
+      "target_link_uri": `https://${toolDomain}/lti`,
       "custom_parameters": customParameters,
       messages,
       "claims": ["sub", "name", "given_name", "family_name"],
@@ -179,7 +182,7 @@ export async function handleRegisterPlatform(
     console.debug("");
   }
 
-  await service.registerPlatform(platform as Platform);
+  await registerPlatform(storage, aesKey, platform as Platform, options);
 
   return c.html("<script>(window.opener || window.parent).postMessage({subject:'org.imsglobal.lti.close'}, '*')</script>");
 }

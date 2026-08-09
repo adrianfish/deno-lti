@@ -17,7 +17,6 @@ import { validateToken } from "../auth/tokens.ts";
 import { signLtik, verifyLtik } from "../auth/tokens.ts";
 import { GRADING, GROUPS, ROSTER } from "../constants.ts";
 import { randomHex } from "../auth/keys.ts";
-import { LTIService } from "../services/lti-service.ts";
 import { DEEP_LINKING, RESOURCE_LINK } from "../messages.ts";
 
 import type { Storage } from "../storage/storage.ts";

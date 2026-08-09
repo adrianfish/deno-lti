@@ -4,11 +4,10 @@
 
 import { HTTPHeaderLink, HTTPHeaderLinkEntry } from "@hugoalh/http-header-link";
 import { requestAccessToken } from "./oauth.ts";
-import { buildKeyId } from "./lti-service.ts";
+import { buildKeyId } from "../utils/platform-utils.ts";
 
 import type { Storage } from "../storage/storage.ts";
-import type { Group, Platform } from "../types.ts";
-import type { StoredContextToken } from "../types.ts";
+import type { Group, Platform, StoredContextToken } from "../types.ts";
 
 export async function ensureGroupsCached(
     storage: Storage,

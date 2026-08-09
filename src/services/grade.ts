@@ -2,7 +2,7 @@
  * Assignment and Grade Service (AGS) — LTI 1.3
  */
 import { requestAccessToken } from "./oauth.ts";
-import { buildKeyId } from "./lti-service.ts";
+import { buildKeyId } from "../utils/platform-utils.ts";
 
 import type { Storage } from "../storage/storage.ts";
 import type { LineItem, LTIToken, Platform } from "../types.ts";
@@ -62,7 +62,6 @@ export async function getLineItems(
   await ensureLineItemsCached(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId);
   return storage.getLineItems(clientId, contextId);
 }
-
 
 /** Get all line items for the current context, following pagination. */
 async function loadLineItems(

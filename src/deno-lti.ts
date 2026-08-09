@@ -10,7 +10,7 @@ import { getCachedRoleTotals, getPageOfMembers, isMembersCacheBuilding } from ".
 import { getGroups } from "./services/groups.ts";
 import { requestAccessToken } from "./services/oauth.ts";
 import { GRADING, GROUPS, ROSTER } from "./constants.ts";
-import { buildKeyId, LTIService } from "./services/lti-service.ts";
+import { buildKeyId } from "./utils/platform-utils.ts";
 import { createDeepLinkingForm, createDeepLinkingMessage } from "./services/deep-linking.ts";
 import { deriveAesKey } from "./crypto.ts";
 
@@ -23,7 +23,7 @@ export class DenoLTI {
 
   #app = new Hono();
   #storage!: Storage;
-  #ltiService!: LTIService;
+  #toolDomain!: string;
   #secret!: string;
   #clientName!: string;
   #logoUri!: string;
@@ -76,10 +76,7 @@ export class DenoLTI {
     this.#storage = await DenoKVStorage.open();
     this.#options = options;
 
-    this.#ltiService = new LTIService(options);
-    this.#ltiService.storage = this.#storage;
-    this.#ltiService.aesKey = this.#aesKey;
-    this.#ltiService.toolDomain = toolDomain;
+    this.#toolDomain = toolDomain;
 
     this.#buildRoutes();
     this.#ready = true;
@@ -115,7 +112,7 @@ export class DenoLTI {
   ): Promise<MemberPage | null> {
 
     if (this.#options.services?.includes(ROSTER)) {
-      return getPageOfMembers(this.#storage, this.#ltiService.toolDomain, this.#aesKey, platformUrl, clientId, contextId, userId, startNum, lengthNum, filter);
+      return getPageOfMembers(this.#storage, this.#toolDomain, this.#aesKey, platformUrl, clientId, contextId, userId, startNum, lengthNum, filter);
     }
 
     return null;
@@ -161,7 +158,7 @@ export class DenoLTI {
   ): Promise<Array<Group> | null> {
 
     if (this.#options.services?.includes(GROUPS)) {
-      return getGroups(this.#storage, this.#ltiService.toolDomain, this.#aesKey, platformUrl, clientId, contextId, userId);
+      return getGroups(this.#storage, this.#toolDomain, this.#aesKey, platformUrl, clientId, contextId, userId);
     }
 
     return null;
@@ -328,7 +325,7 @@ export class DenoLTI {
     const platform: Platform = await this.#storage.getPlatform(platformUrl, clientId);
     const endpoint: string = platform.accesstokenEndpoint;
     const kid = buildKeyId(platform);
-    return requestAccessToken(this.#ltiService.toolDomain, endpoint, platformUrl, clientId, kid, scopes, this.#storage, this.#aesKey);
+    return requestAccessToken(this.#toolDomain, endpoint, platformUrl, clientId, kid, scopes, this.#storage, this.#aesKey);
   }
 
   // ---------------------------------------------------------------------------
@@ -378,7 +375,7 @@ export class DenoLTI {
       ["GET", "POST"],
       "/login",
       (c) =>
-        handleLogin(c, this.#storage, this.#ltiService, {
+        handleLogin(c, this.#storage, {
           secure: this.#options.cookies?.secure ?? false,
           sameSite: this.#options.cookies?.sameSite ?? "Lax",
         }),
@@ -388,7 +385,7 @@ export class DenoLTI {
     this.#app.on(
       ["GET", "POST"],
       "/register",
-      (c) => handleRegisterPlatform(c, this.#storage, this.#ltiService, this.#clientName, this.#description, this.#logoUri, this.#options),
+      (c) => handleRegisterPlatform(c, this.#storage, this.#toolDomain, this.#aesKey, this.#clientName, this.#description, this.#logoUri, this.#options),
     );
 
     // -------------------------------------------------------------------------
@@ -403,7 +400,7 @@ export class DenoLTI {
         storage: this.#storage,
         secret: this.#secret,
         aesKey: this.#aesKey,
-        toolDomain: this.#ltiService.toolDomain,
+        toolDomain: this.#toolDomain,
         launchCallback: this.#launchCallback,
         deepLinkingCallback: this.#deepLinkingCallback,
         onSessionTimeout: this.#sessionTimeoutCallback,
