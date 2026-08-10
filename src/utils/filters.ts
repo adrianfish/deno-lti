@@ -11,7 +11,7 @@ export function buildFilter(role?: string, groupId?: string, search?: string) {
 
     if (filterByRole && !m.roles.includes(role)) return false;
 
-    if (filterByGroup && !m.group_enrollments?.some(e => e.group_id === groupId)) return false;
+    if (filterByGroup && !m.group_enrollments?.some((e: Record<string, string>) => e.group_id === groupId)) return false;
 
     if (filterBySearch) {
       const haystack = [ m.given_name, m.family_name, m.email, m.status, m.nickname, m.pronouns, m.phoneticName, m.mobile ]

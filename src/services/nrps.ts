@@ -10,7 +10,7 @@ import { ENRICHMENT_FIELDS } from "./enrichment-fields.ts";
 import { buildKeyId } from "../utils/platform-utils.ts";
 
 import type { MemberPage, Storage } from "../storage/storage.ts";
-import type { Platform, StoredContextToken } from "../types.ts";
+import type { Member, Platform, StoredContextToken } from "../types.ts";
 
 /** A page of NRPS members, plus the cursor/token for the next page (if any). */
 interface MembersPage {
@@ -220,7 +220,7 @@ async function persistMembers(
   storage: Storage,
   clientId: string,
   contextId: string,
-  members: object[] = []
+  members: Array<Member> = []
 ): Promise<void> {
 
   for (const m of members) await storage.setMember(clientId, contextId, m);

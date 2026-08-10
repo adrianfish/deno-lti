@@ -7,7 +7,13 @@ import { requestAccessToken } from "./oauth.ts";
 import { buildKeyId } from "../utils/platform-utils.ts";
 
 import type { Storage } from "../storage/storage.ts";
-import type { Group, Platform, StoredContextToken } from "../types.ts";
+import type { Platform, StoredContextToken } from "../types.ts";
+
+export interface Group {
+  id: string;
+  name: string;
+  tag: string;
+}
 
 export async function ensureGroupsCached(
     storage: Storage,

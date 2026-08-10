@@ -17,7 +17,8 @@ import { deriveAesKey } from "./crypto.ts";
 import type { MiddlewareHandler } from "hono";
 import type { MemberPage, Storage } from "./storage/storage.ts";
 import type { MemberFilter } from "./services/nrps.ts";
-import type { Group, ErrorHandler, LTIHandler, ToolOptions } from "./types.ts";
+import type { ErrorHandler, LTIHandler, ToolOptions } from "./types.ts";
+import type { Group } from "./services/groups.ts";
 
 export class DenoLTI {
 

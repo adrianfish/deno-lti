@@ -164,12 +164,6 @@ export interface ContentItem {
   [key: string]: unknown;
 }
 
-export interface Group {
-  id: string;
-  name: string;
-  tag: string;
-}
-
 export interface LineItem {
   id?: string;
   scoreMaximum: number;
@@ -178,4 +172,26 @@ export interface LineItem {
   tag?: string;
   resourceLinkId?: string;
   [key: string]: unknown;
+}
+
+export interface Member {
+  group_enrollments: Array<Record<string, string>>;
+  user_id: string;
+  roles: Array<string>;
+  name: string;
+  given_name: string;
+  family_name: string;
+  email: string;
+  status: string;
+  sakai_groups?: Array<Record<string, string>>;
+  sakai_role?: string;
+}
+
+/** A page of members plus the total and filtered totals. */
+export interface MemberPage {
+  members: Array<Member>;
+  /** Total member records, ignoring any filter. */
+  recordsTotal: number;
+  /** Member records matching the active filter. */
+  recordsFiltered: number;
 }

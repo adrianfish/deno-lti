@@ -1,13 +1,4 @@
-import type { OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
-
-/** A page of members plus the counts DataTables needs to render pagination. */
-export interface MemberPage {
-  members: Array<object>;
-  /** Total member records, ignoring any filter. */
-  recordsTotal: number;
-  /** Member records matching the active filter. */
-  recordsFiltered: number;
-}
+import type { MemberPage, OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
 /** Cached per-group membership counts, plus the overall member total. */
 export interface GroupTotals {

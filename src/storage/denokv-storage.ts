@@ -1,5 +1,5 @@
-import type { GroupTotals, MemberPage, Storage } from "./storage.ts";
-import type { LineItem, OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
+import type { GroupTotals, Storage } from "./storage.ts";
+import type { LineItem, Member, MemberPage, OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
 const LIST_CHUNK = 200;
 
@@ -21,6 +21,7 @@ const LIST_CHUNK = 200;
  */
 export class DenoKVStorage implements Storage {
   #kv: Deno.Kv;
+  #membersAndGroupsTTL: number = 15 * 60 * 1_000;
 
   private constructor(kv: Deno.Kv) {
     this.#kv = kv;
@@ -239,8 +240,7 @@ export class DenoKVStorage implements Storage {
     delete user.lti11_legacy_user_id;
     delete user.lis_person_sourcedid;
 
-    const expireIn: number = 15 * 60 * 1000;
-    return (await this.#kv.set([ ...this.#membersPrefix(clientId, contextId), id ], user, { expireIn })).ok;
+    return (await this.#kv.set([ ...this.#membersPrefix(clientId, contextId), id ], user, { expireIn: this.#membersAndGroupsTTL })).ok;
   }
 
   async hasAnyMembers(clientId: string, contextId: string): Promise<boolean> {
@@ -303,7 +303,7 @@ export class DenoKVStorage implements Storage {
     };
   }
 
-  async getAllMembers(clientId: string, contextId: string): Promise<Array<object>> {
+  async getAllMembers(clientId: string, contextId: string): Promise<Array<Member>> {
 
     const all = [];
     let cursor: string | undefined;
@@ -362,8 +362,8 @@ export class DenoKVStorage implements Storage {
       }
     }
 
-    await this.#kv.set(this.#roleTotalsKey(clientId, contextId), roleTotals);
-    await this.#kv.set(this.#groupTotalsKey(clientId, contextId), groupTotals);
+    await this.#kv.set(this.#roleTotalsKey(clientId, contextId), roleTotals, { expireIn: this.#membersAndGroupsTTL } );
+    await this.#kv.set(this.#groupTotalsKey(clientId, contextId), groupTotals, { expireIn: this.#membersAndGroupsTTL });
 
     return roleTotals;
   }
@@ -388,13 +388,13 @@ export class DenoKVStorage implements Storage {
     return await this.#kv.delete(this.#groupsCachingKey(clientId, contextId));
   }
 
-  async setGroup(clientId: string, contextId: string, group: object): Promise<boolean> {
+  async setGroup(clientId: string, contextId: string, group: Group): Promise<boolean> {
 
     const expireIn: number = 15 * 60 * 1000;
     return (await this.#kv.set([ ...this.#groupsPrefix(clientId, contextId), group.id ], group, { expireIn })).ok;
   }
 
-  async getGroups(clientId: string, contextId: string): Promise<Array<object>> {
+  async getGroups(clientId: string, contextId: string): Promise<Array<Group>> {
 
     const groups = [];
     let cursor: string | undefined;
@@ -430,7 +430,7 @@ export class DenoKVStorage implements Storage {
     return (await this.#kv.set([ ...this.#lineItemsPrefix(clientId, contextId), id ], item, { expireIn })).ok;
   }
 
-  async getLineItems(clientId: string, contextId: string): Promise<LineItem[]> {
+  async getLineItems(clientId: string, contextId: string): Promise<Array<LineItem>> {
 
     const items = [];
     let cursor: string | undefined;
