@@ -1,3 +1,5 @@
+import { Member }  from "../types.ts";
+
 export function buildFilter(role?: string, groupId?: string, search?: string) {
 
   const filterByRole = role && role !== "all";
@@ -7,7 +9,7 @@ export function buildFilter(role?: string, groupId?: string, search?: string) {
 
   if (!filterByRole && !filterByGroup && !filterBySearch) return undefined;
 
-  return m => {
+  return (m: Member) => {
 
     if (filterByRole && !m.roles.includes(role)) return false;
 

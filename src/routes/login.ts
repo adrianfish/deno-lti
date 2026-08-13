@@ -22,7 +22,7 @@ interface LoginParams {
   login_hint: string;
   target_link_uri?: string;
   lti_message_hint?: string;
-  client_id?: string;
+  client_id: string;
   lti_deployment_id?: string;
 }
 
@@ -43,12 +43,12 @@ export async function handleLogin(
 
   const { iss, login_hint, target_link_uri, lti_message_hint, client_id } = params;
 
-  if (!iss || !login_hint) {
-    return c.text("Missing iss or login_hint", 400);
+  if (!iss || !login_hint || !client_id) {
+    return c.text("Missing iss, login_hint or client_id", 400);
   }
 
   // Look up platform
-  const platform = await storage.getPlatform(iss, client_id);
+  const platform: Platform | null = await storage.getPlatform(iss, client_id);
   if (!platform) {
     return c.text(`Unregistered platform for url ${iss} and client_id ${client_id}`, 400);
   }

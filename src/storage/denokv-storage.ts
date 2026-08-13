@@ -1,5 +1,5 @@
 import type { GroupTotals, Storage } from "./storage.ts";
-import type { LineItem, Member, MemberPage, OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
+import type { Group, LineItem, Member, MemberPage, OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
 const LIST_CHUNK = 200;
 
@@ -94,7 +94,7 @@ export class DenoKVStorage implements Storage {
   }
 
   async getPlatform(url: string, clientId: string): Promise<Platform | null> {
-    return (await this.#kv.get(this.#platformKey(url, clientId))).value;
+    return (await this.#kv.get<Platform>(this.#platformKey(url, clientId))).value;
   }
 
   async setPlatformActive(url: string, clientId: string, active: boolean): Promise<void> {
@@ -119,20 +119,20 @@ export class DenoKVStorage implements Storage {
   }
 
   async getPublicKey(kid: string): Promise<string | null> {
-    return (await this.#kv.get(this.#publicKeyKey(kid))).value;
+    return (await this.#kv.get<string>(this.#publicKeyKey(kid))).value;
   }
 
   async getPrivateKey(kid: string): Promise<string | null> {
-    return (await this.#kv.get(this.#privateKeyKey(kid))).value;
+    return (await this.#kv.get<string>(this.#privateKeyKey(kid))).value;
   }
 
   async getAllPublicKeys(): Promise<Array<{ kid: string; encryptedKey: string }>> {
 
-    const results = [];
+    const results: Array<{ kid: string; encryptedKey: string }> = [];
     for await (const entry of this.#kv.list({ prefix: ["lti", "key_public"] })) {
       if (entry.value) {
-        const kid = entry.key[2];
-        results.push({ kid, encryptedKey: entry.value });
+        const kid: string = entry.key[2] as string;
+        results.push({ kid, encryptedKey: entry.value as string });
       }
     }
     return results;
@@ -147,7 +147,7 @@ export class DenoKVStorage implements Storage {
   }
 
   async getIdToken(key: string): Promise<StoredIdToken | null> {
-    return (await this.#kv.get(["lti", "idtoken", key])).value;
+    return (await this.#kv.get<StoredIdToken>(["lti", "idtoken", key])).value;
   }
 
   // -------------------------------------------------------------------------
@@ -163,7 +163,7 @@ export class DenoKVStorage implements Storage {
   }
 
   async getContextToken(key: string): Promise<StoredContextToken | null> {
-    return (await this.#kv.get(["lti", "contexttoken", key])).value;
+    return (await this.#kv.get<StoredContextToken>(["lti", "contexttoken", key])).value;
   }
 
   // -------------------------------------------------------------------------
@@ -187,7 +187,7 @@ export class DenoKVStorage implements Storage {
   }
 
   async getState(state: string): Promise<OidcStateData | null> {
-    return (await this.#kv.get(["lti", "state", state])).value;
+    return (await this.#kv.get<OidcStateData>(["lti", "state", state])).value;
   }
 
   async deleteState(state: string): Promise<void> {
@@ -213,7 +213,7 @@ export class DenoKVStorage implements Storage {
     requestedScopes: string,
   ): Promise<StoredAccessToken | null> {
 
-    const entry = await this.#kv.get(this.#accessTokenKey(platformUrl, clientId, requestedScopes));
+    const entry = await this.#kv.get<StoredAccessToken>(this.#accessTokenKey(platformUrl, clientId, requestedScopes));
     if (!entry.value) return null;
     if (entry.value.expiresAt < Date.now()) return null;
     return entry.value;
@@ -256,7 +256,7 @@ export class DenoKVStorage implements Storage {
     contextId: string,
     start: number,
     length: number,
-    filter?: (object) => boolean,
+    filter?: (m: Member) => boolean,
     filteredCount?: number,
   ): Promise<MemberPage> {
 
@@ -270,21 +270,21 @@ export class DenoKVStorage implements Storage {
     const cachedTotal = (await this.getCachedGroupTotals(clientId, contextId))?.total;
     const windowed = filteredCount !== undefined && cachedTotal !== undefined && length > 0;
 
-    const members = [];
+    const members: Array<Member> = [];
     let recordsTotal = 0;
     let matched = 0;
     let cursor: string | undefined;
 
     while (true) {
-      const iter = this.#kv.list({ prefix }, { cursor, limit: LIST_CHUNK });
+      const iter = this.#kv.list<Member>({ prefix }, { cursor, limit: LIST_CHUNK });
       let seenInChunk = 0;
       let filled = false;
       for await (const entry of iter) {
         seenInChunk++;
         recordsTotal++;
-        const user = entry.value;
-        if (filter && !filter(user)) continue;
-        if (matched >= start && members.length < length) members.push(user);
+        const member: Member = entry.value;
+        if (filter && !filter(member)) continue;
+        if (matched >= start && members.length < length) members.push(member);
         matched++;
         if (windowed && members.length === length) {
           filled = true;
@@ -305,10 +305,10 @@ export class DenoKVStorage implements Storage {
 
   async getAllMembers(clientId: string, contextId: string): Promise<Array<Member>> {
 
-    const all = [];
+    const all: Array<Member> = [];
     let cursor: string | undefined;
     while (true) {
-      const iter = this.#kv.list({ prefix: this.#membersPrefix(clientId, contextId) }, { cursor, limit: LIST_CHUNK });
+      const iter = this.#kv.list<Member>({ prefix: this.#membersPrefix(clientId, contextId) }, { cursor, limit: LIST_CHUNK });
       let seen = 0;
       for await (const entry of iter) {
         seen++;
@@ -321,11 +321,11 @@ export class DenoKVStorage implements Storage {
   }
 
   async getCachedRoleTotals(clientId: string, contextId: string): Promise<Record<string, number> | null> {
-    return (await this.#kv.get(this.#roleTotalsKey(clientId, contextId))).value;
+    return (await this.#kv.get<Record<string, number>>(this.#roleTotalsKey(clientId, contextId))).value;
   }
 
   async getCachedGroupTotals(clientId: string, contextId: string): Promise<GroupTotals | null> {
-    return (await this.#kv.get(this.#groupTotalsKey(clientId, contextId))).value;
+    return (await this.#kv.get<GroupTotals>(this.#groupTotalsKey(clientId, contextId))).value;
   }
 
   async cacheTotals(clientId: string, contextId: string): Promise<Record<string, number>> {
@@ -371,7 +371,7 @@ export class DenoKVStorage implements Storage {
   async hasAnyGroups(clientId: string, contextId: string): Promise<boolean> {
 
     // Try and get one user
-    const iter = this.#kv.list({ prefix: this.#groupsPrefix(clientId, contextId) }, { limit: 1 });
+    const iter = this.#kv.list<Group>({ prefix: this.#groupsPrefix(clientId, contextId) }, { limit: 1 });
     for await (const _ of iter) return true;
     return false;
   }
@@ -396,12 +396,12 @@ export class DenoKVStorage implements Storage {
 
   async getGroups(clientId: string, contextId: string): Promise<Array<Group>> {
 
-    const groups = [];
+    const groups: Array<Group> = [];
     let cursor: string | undefined;
 
     const prefix = this.#groupsPrefix(clientId, contextId);
     while (true) {
-      const iter = this.#kv.list({ prefix }, { cursor, limit: LIST_CHUNK });
+      const iter = this.#kv.list<Group>({ prefix }, { cursor, limit: LIST_CHUNK });
       for await (const entry of iter) {
         entry.value && groups.push(entry.value);
       }
@@ -423,6 +423,8 @@ export class DenoKVStorage implements Storage {
   async setLineItem(clientId: string, contextId: string, item: LineItem): Promise<boolean> {
 
     let id = item.id;
+    if (!id) return false;
+
     const index = id.lastIndexOf("/");
     if (index !== -1) id = id.substring(index + 1);
 
@@ -432,18 +434,20 @@ export class DenoKVStorage implements Storage {
 
   async getLineItems(clientId: string, contextId: string): Promise<Array<LineItem>> {
 
-    const items = [];
+    const items: Array<LineItem> = [];
     let cursor: string | undefined;
     const prefix = this.#lineItemsPrefix(clientId, contextId);
 
     while (true) {
-      const iter = this.#kv.list({ prefix }, { cursor, limit: LIST_CHUNK });
+      const iter = this.#kv.list<LineItem>({ prefix }, { cursor, limit: LIST_CHUNK });
       for await (const entry of iter) {
         items.push(entry.value);
       }
       cursor = iter.cursor || undefined;
       if (!cursor) break;
     }
+
+    return items;
   }
 
   close(): void {

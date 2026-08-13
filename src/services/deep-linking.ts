@@ -5,36 +5,50 @@
 import { SignJWT } from "jose";
 import { getPrivateKey } from "../auth/keys.ts";
 import type { Storage } from "../storage/storage.ts";
-import type { ContentItem, LTIToken } from "../types.ts";
+import type { ContentItem, LTIToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
 /**
  * Create an auto-submitting HTML form that posts the Deep Linking response
  * back to the platform.
  *
- * @param token - The LTI token from the current session (res.locals.token equivalent)
- * @param items - Content items to return to the platform
- * @param storage - Storage (to retrieve the private key)
- * @param aesKey - AES key for decrypting stored private key
- * @param toolUrl - The tool's own URL (used as iss in the response JWT)
+ * @param { platformCode: string; contextId: string; userId: string; } data- The params.
+ * @param {ContentItem[]} items Content items to return to the platform
+ * @param {Storage} storage Storage (to retrieve the private key)
+ * @param {CryptoKey} aesKey AES key for decrypting stored private key
+ * @param {string} toolUrl The tool's own URL (used as iss in the response JWT)
+ *
+ * @return {string} The html markup for the deep linking form
  */
 export async function createDeepLinkingForm(
-  data: Record<string, string>,
+  data: { platformCode: string; contextId: string; userId: string; },
   items: ContentItem[],
   storage: Storage,
   aesKey: CryptoKey,
   toolUrl: string,
 ): Promise<string> {
 
+  if (!data?.contextId || !data?.userId) {
+    return "data.contextId and data.userId must be supplied";
+  }
+
   const userIdIndex = data.userId.lastIndexOf("/");
   const userId = data.userId.substring(userIdIndex + 1);
 
-  const token: StoredIdToken | null = await storage.getIdToken(`${data.platformCode}${userId}`);
   const contextToken: StoredContextToken | null = await storage.getContextToken(`${data.contextId}${userId}`);
 
-  token.platformContext = { deepLinkingSettings: contextToken?.deepLinkingSettings };
+  if (!contextToken) {
+    return `Failed to get context token for ${data.contextId} and ${userId}`;
+  }
 
-  const message = await createDeepLinkingMessage(token, items, storage, aesKey, toolUrl);
-  const returnUrl = token.platformContext.deepLinkingSettings?.deep_link_return_url || "";
+  const idToken: StoredIdToken | null = await storage.getIdToken(`${data.platformCode}${userId}`);
+  if (!idToken) {
+    return `Failed to get id token for ${data.platformCode} and ${userId}`;
+  }
+
+  const ltiToken: LTIToken = { ...idToken, platformContext: contextToken };
+
+  const message = await createDeepLinkingMessage(ltiToken, items, storage, aesKey, toolUrl);
+  const returnUrl = contextToken.deepLinkingSettings?.deep_link_return_url || "";
 
   // Auto-submitting form
   return `<!DOCTYPE html>
@@ -63,9 +77,9 @@ export async function createDeepLinkingMessage(
 
   const settings = token.platformContext.deepLinkingSettings;
 
-  let data = settings.data;
+  let data = settings?.data;
   if (!data) {
-    const url = new URL(token.platformContext.deepLinkingSettings?.deep_link_return_url || "");
+    const url = new URL(token.platformContext.deepLinkingSettings?.deep_link_return_url as string || "");
     data = url.searchParams.get("data");
   }
 

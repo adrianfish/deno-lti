@@ -89,7 +89,7 @@ export async function handleRegisterPlatform(
     scopesRequested.push("https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly");
   }
 
-  const messages = [
+  const messages: Array<any> = [
     {
       "type": RESOURCE_LINK,
       "target_link_uri": `https://${toolDomain}/lti`,
@@ -200,7 +200,7 @@ function buildCustomParameters(
 ): Record<string, string> {
 
   const params: Record<string, string> = {};
-  for (const field: EnrichmentField of ENRICHMENT_FIELDS) {
+  for (const field of ENRICHMENT_FIELDS) {
     const variable = (familyCode && field.byFamily?.[familyCode]) ?? field.variable;
     if (variable) params[field.param] = variable;
   }

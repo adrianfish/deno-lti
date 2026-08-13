@@ -9,12 +9,12 @@ import { LMS_EXTENSIONS } from "./extensions.ts";
 import { ENRICHMENT_FIELDS } from "./enrichment-fields.ts";
 import { buildKeyId } from "../utils/platform-utils.ts";
 
-import type { MemberPage, Storage } from "../storage/storage.ts";
-import type { Member, Platform, StoredContextToken } from "../types.ts";
+import type { Storage } from "../storage/storage.ts";
+import type { Member, MemberPage, Platform, StoredContextToken } from "../types.ts";
 
 /** A page of NRPS members, plus the cursor/token for the next page (if any). */
 interface MembersPage {
-  members: object[];
+  members: Array<Member>;
   next?: string;
   accessToken?: string;
 }
@@ -79,7 +79,7 @@ export async function getCachedRoleTotals(
   storage: Storage,
   clientId: string,
   contextId: string,
-): Promise<Record<string, string>> {
+): Promise<Record<string, number> | null> {
 
   return await storage.getCachedRoleTotals(clientId, contextId);
 }
@@ -120,10 +120,10 @@ async function loadMembers(
   user?: string | null,
 ): Promise<MembersPage | null> {
 
-  const contextToken: StoredContextToken = await storage.getContextToken(`${contextId}${user}`);
+  const contextToken: StoredContextToken | null = await storage.getContextToken(`${contextId}${user}`);
   const productFamilyCode = contextToken?.toolPlatform?.product_family_code;
   if (!accessToken && !membershipsUrl && platformUrl && clientId) {
-    const platform: Platform = await storage.getPlatform(platformUrl, clientId);
+    const platform: Platform | null = await storage.getPlatform(platformUrl, clientId);
 
     if (!platform) return null;
 
@@ -171,7 +171,7 @@ async function loadMembers(
         const next: HTTPHeaderLinkEntry[] = headers.getByRel("next");
 
         const users = await r.json();
-        users.members.forEach(m => {
+        users.members.forEach((m: any) => {
 
           m.user_id = m.user_id.substring(m.user_id.lastIndexOf("/") + 1);
 
@@ -245,7 +245,7 @@ async function primeMembersCache(
   storage.setMembersCaching(clientId, contextId);
 
   console.debug(`Getting first page of members for clientId ${clientId} and contextId ${contextId} ...`);
-  const first = await loadMembers(storage, toolDomain, aesKey, null, null, platformUrl, clientId, contextId, userId);
+  const first: MembersPage | null = await loadMembers(storage, toolDomain, aesKey, null, null, platformUrl, clientId, contextId, userId);
   if (!first) return;
   await persistMembers(storage, clientId, contextId, first.members);
 
@@ -261,7 +261,7 @@ async function primeMembersCache(
     let accessToken: string | undefined = first.accessToken;
     let page = 2;
     while (pageUrl) {
-      const result = await loadMembers(storage, toolDomain, aesKey, pageUrl, accessToken, null, null, null, null);
+      const result: MembersPage | null = await loadMembers(storage, toolDomain, aesKey, pageUrl, accessToken, null, null, null, null);
       if (!result) break;
       await persistMembers(storage, clientId, contextId, result.members);
       console.debug(`Drained members page ${page} for clientId ${clientId} and contextId ${contextId}`);

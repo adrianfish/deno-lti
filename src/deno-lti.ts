@@ -15,10 +15,9 @@ import { createDeepLinkingForm, createDeepLinkingMessage } from "./services/deep
 import { deriveAesKey } from "./crypto.ts";
 
 import type { MiddlewareHandler } from "hono";
-import type { MemberPage, Storage } from "./storage/storage.ts";
+import type { Storage } from "./storage/storage.ts";
 import type { MemberFilter } from "./services/nrps.ts";
-import type { ErrorHandler, LTIHandler, ToolOptions } from "./types.ts";
-import type { Group } from "./services/groups.ts";
+import type { ContentItem, ErrorHandler, Group, LTIContext, LTIHandler, LTIToken, MemberPage, Platform, ToolOptions } from "./types.ts";
 
 export class DenoLTI {
 
@@ -176,7 +175,7 @@ export class DenoLTI {
   async getRoleTotals(
     clientId: string,
     contextId: string,
-  ): Promise<Record<string, string> | null> {
+  ): Promise<Record<string, number> | null> {
 
     if (this.#options.services?.includes(ROSTER)) {
       return getCachedRoleTotals(this.#storage, clientId, contextId);
@@ -196,7 +195,7 @@ export class DenoLTI {
    * @returns {Promise<string>} The form markup as a string.
    */
   createDeepLinkingForm(
-    data: Record<string, string>,
+    data: { platformCode: string; contextId: string; userId: string },
     items: ContentItem[],
     toolUrl: string,
   ): Promise<string> {
@@ -315,15 +314,19 @@ export class DenoLTI {
     return this;
   }
 
-  getProduct(ltiContext): string {
+  getProduct(ltiContext: LTIContext): string | undefined {
 
     return ltiContext?.token?.platformContext?.toolPlatform?.product_family_code;
 
   }
 
-  async getAccessToken(platformUrl: string, clientId: string, scopes: Array<string>): string {
+  async getAccessToken(platformUrl: string, clientId: string, scopes: Array<string>): Promise<string | null> {
 
-    const platform: Platform = await this.#storage.getPlatform(platformUrl, clientId);
+    const platform: Platform | null = await this.#storage.getPlatform(platformUrl, clientId);
+    if (!platform) {
+      console.warn(`Failed to get platform for url ${platformUrl} and ${clientId}`);
+      return null;
+    }
     const endpoint: string = platform.accesstokenEndpoint;
     const kid = buildKeyId(platform);
     return requestAccessToken(this.#toolDomain, endpoint, platformUrl, clientId, kid, scopes, this.#storage, this.#aesKey);

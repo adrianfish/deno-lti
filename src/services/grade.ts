@@ -5,7 +5,7 @@ import { requestAccessToken } from "./oauth.ts";
 import { buildKeyId } from "../utils/platform-utils.ts";
 
 import type { Storage } from "../storage/storage.ts";
-import type { LineItem, LTIToken, Platform } from "../types.ts";
+import type { LineItem, LTIToken, Platform, StoredContextToken } from "../types.ts";
 
 export interface Score {
   userId: string;
@@ -33,7 +33,7 @@ const AGS_SCOPE_RESULT_RO = "https://purl.imsglobal.org/spec/lti-ags/scope/resul
 export async function ensureLineItemsCached(
   storage: Storage,
   toolDomain: string,
-  aesKey: string,
+  aesKey: CryptoKey,
   platformUrl: string,
   clientId: string,
   contextId: string,
@@ -45,8 +45,12 @@ export async function ensureLineItemsCached(
     return;
   }
 
-  const items: LineItem[] = await loadLineItems(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId);
-  items.forEach(item => storage.setLineItem(clientId, contextId, item));
+  const items: LineItem[] | null = await loadLineItems(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId);
+  if (items) {
+    items.forEach(item => storage.setLineItem(clientId, contextId, item));
+  } else {
+    console.warn("No items found");
+  }
 }
 
 export async function getLineItems(
@@ -73,24 +77,24 @@ async function loadLineItems(
   contextId: string,
   userId: string,
   options?: { resourceId?: string; tag?: string },
-): Promise<LineItem[]> {
+): Promise<LineItem[] | null> {
 
-  const contextToken: StoredContextToken = await storage.getContextToken(`${contextId}${userId}`);
+  const contextToken: StoredContextToken | null = await storage.getContextToken(`${contextId}${userId}`);
 
   if (!platformUrl || !clientId) {
     console.error("platformUrl and clientId must be supplied");
-    return  [];
+    return null;
   }
 
-  const platform: Platform = await storage.getPlatform(platformUrl, clientId);
+  const platform: Platform | null = await storage.getPlatform(platformUrl, clientId);
   if (!platform) return null;
 
-  let url;
+  let url: URL;
   try {
-    url = new URL(contextToken?.grades?.lineitems);
+    url = new URL(contextToken?.grades?.lineitems as string || "");
   } catch (error) {
     console.error(error);
-    return [];
+    return null;
   }
 
   const requestedScopes = [ AGS_SCOPE_LINEITEM_RO, AGS_SCOPE_LINEITEM ];
@@ -106,6 +110,11 @@ async function loadLineItems(
     aesKey,
   );
 
+  if (!accessToken) {
+    console.warn("Failed to get access token");
+    return null;
+  }
+
   if (options?.resourceId) url.searchParams.set("resource_id", options.resourceId);
   if (options?.tag) url.searchParams.set("tag", options.tag);
 
@@ -115,20 +124,40 @@ async function loadLineItems(
 /** Create a new line item. */
 export async function createLineItem(
   storage: Storage,
+  toolDomain: string,
   aesKey: CryptoKey,
+  platformUrl: string,
+  clientId: string,
   token: LTIToken,
   lineItem: LineItem,
-): Promise<LineItem> {
+): Promise<LineItem | null> {
 
   const endpoint = token.platformContext.endpoint;
   if (!endpoint?.lineitems) throw new Error("No lineitems endpoint in context");
 
-  const accessToken = await getAccessToken(
-    token,
+  if (!platformUrl || !clientId) {
+    console.error("platformUrl and clientId must be supplied");
+    return null;
+  }
+
+  const platform: Platform | null = await storage.getPlatform(platformUrl, clientId);
+  if (!platform) return null;
+
+  const accessToken = await requestAccessToken(
+    toolDomain,
+    platform.accesstokenEndpoint,
+    platformUrl,
+    clientId,
+    buildKeyId(platform),
     [AGS_SCOPE_LINEITEM],
     storage,
     aesKey,
   );
+
+  if (!accessToken) {
+    console.warn("Failed to get access token");
+    return null;
+  }
 
   const res = await fetch(endpoint.lineitems as string, {
     method: "POST",
@@ -146,18 +175,37 @@ export async function createLineItem(
 /** Post a score to a line item. */
 export async function postScore(
   storage: Storage,
+  toolDomain: string,
   aesKey: CryptoKey,
-  token: LTIToken,
+  platformUrl: string,
+  clientId: string,
   lineItemId: string,
   score: Score,
 ): Promise<void> {
 
-  const accessToken = await getAccessToken(
-    token,
+  if (!platformUrl || !clientId) {
+    console.error("platformUrl and clientId must be supplied");
+    return;
+  }
+
+  const platform: Platform | null = await storage.getPlatform(platformUrl, clientId);
+  if (!platform) return;
+
+  const accessToken = await requestAccessToken(
+    toolDomain,
+    platform.accesstokenEndpoint,
+    platformUrl,
+    clientId,
+    buildKeyId(platform),
     [AGS_SCOPE_SCORE],
     storage,
     aesKey,
   );
+
+  if (!accessToken) {
+    console.warn("Failed to get access token");
+    return;
+  }
 
   const scoreUrl = lineItemId.replace(/\/?$/, "/scores");
   const res = await fetch(scoreUrl, {
@@ -178,17 +226,40 @@ export async function postScore(
 /** Get results for a line item, following pagination. */
 export async function getResults(
   storage: Storage,
+  toolDomain: string, 
   aesKey: CryptoKey,
-  token: LTIToken,
+  platformUrl: string,
+  clientId: string,
+  contextId: string,
+  userId: string,
   lineItemId: string
-): Promise<Result[]> {
+): Promise<Result[] | null> {
 
-  const accessToken = await getAccessToken(
-    token,
+  const contextToken: StoredContextToken | null = await storage.getContextToken(`${contextId}${userId}`);
+
+  if (!platformUrl || !clientId) {
+    console.error("platformUrl and clientId must be supplied");
+    return  [];
+  }
+
+  const platform: Platform | null = await storage.getPlatform(platformUrl, clientId);
+  if (!platform) return null;
+
+  const accessToken = await requestAccessToken(
+    toolDomain,
+    platform.accesstokenEndpoint,
+    platformUrl,
+    clientId,
+    buildKeyId(platform),
     [AGS_SCOPE_RESULT_RO],
     storage,
     aesKey,
   );
+
+  if (!accessToken) {
+    console.warn("Failed to get access token");
+    return [];
+  }
 
   const resultsUrl = lineItemId.replace(/\/?$/, "/results");
   return fetchAllPages(resultsUrl, accessToken, "application/vnd.ims.lis.v2.resultcontainer+json");
@@ -198,7 +269,7 @@ async function fetchAllPages(
   url: string,
   accessToken: string,
   accept: string,
-): Promise {
+): Promise<any[]> {
   const all = [];
   let nextUrl: string | null = url;
 

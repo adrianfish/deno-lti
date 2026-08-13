@@ -26,7 +26,8 @@ export async function signLtik(
   payload: LtikPayload,
   secret: string,
 ): Promise<string> {
-  return new SignJWT(payload)
+  console.log(payload);
+  return new SignJWT(payload as unknown as JWTPayload)
     .setProtectedHeader({ alg: "HS256" })
     .sign(ltikSecret(secret));
 }
@@ -89,9 +90,9 @@ export async function validateToken(
   const header = JSON.parse(atob(headerB64.replace(/-/g, "+").replace(/_/g, "/")));
   const kid: string = header.kid;
 
-  const verificationKey = await resolvePlatformKey(platform, kid);
+  const verificationKey: CryptoKey = await resolvePlatformKey(platform, kid);
 
-  const { payload } = await jwtVerify(idTokenJwt, verificationKey as CryptoKey, {
+  const { payload } = await jwtVerify(idTokenJwt, verificationKey, {
     algorithms: ["RS256"],
     audience: platform.clientId,
     issuer: platform.url,

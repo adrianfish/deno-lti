@@ -53,7 +53,7 @@ export interface StoredContextToken {
   resource: Record<string, unknown>;
   custom: Record<string, unknown>;
   launchPresentation: Record<string, unknown>;
-  messageType: RESOURCE_LINK | DEEP_LINKING;
+  messageType: string;
   version: string;
   deepLinkingSettings?: Record<string, unknown>;
   lis: Record<string, unknown>;
@@ -81,7 +81,8 @@ export interface LtikPayload {
   /** base64(iss+clientId+deploymentId) — used as cookie name */
   platformCode: string;
   contextId: string;
-  user: string;
+  userId: string;
+  role?: string;
   /** Random salt — makes each launch unique */
   s: string;
 }
@@ -117,7 +118,6 @@ export interface StoredAccessToken {
 
 export interface LTIContext {
   token: LTIToken;
-  context: StoredContextToken;
   ltik: string;
 }
 
@@ -183,6 +183,10 @@ export interface Member {
   family_name: string;
   email: string;
   status: string;
+  mobile?: string;
+  phoneticName?: string;
+  pronouns?: string;
+  nickname?: string;
   sakai_groups?: Array<Record<string, string>>;
   sakai_role?: string;
 }
@@ -194,4 +198,10 @@ export interface MemberPage {
   recordsTotal: number;
   /** Member records matching the active filter. */
   recordsFiltered: number;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  tag: string;
 }

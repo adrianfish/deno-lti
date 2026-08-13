@@ -7,18 +7,12 @@ import { requestAccessToken } from "./oauth.ts";
 import { buildKeyId } from "../utils/platform-utils.ts";
 
 import type { Storage } from "../storage/storage.ts";
-import type { Platform, StoredContextToken } from "../types.ts";
-
-export interface Group {
-  id: string;
-  name: string;
-  tag: string;
-}
+import type { Group, Platform, StoredContextToken } from "../types.ts";
 
 export async function ensureGroupsCached(
     storage: Storage,
     toolDomain: string,
-    aesKey: string,
+    aesKey: CryptoKey,
     platformUrl: string,
     clientId: string,
     contextId: string,
@@ -36,7 +30,7 @@ export async function ensureGroupsCached(
 export async function getGroups(
   storage: Storage,
   toolDomain: string,
-  aesKey: string,
+  aesKey: CryptoKey,
   platformUrl: string,
   clientId: string,
   contextId: string,
@@ -68,23 +62,23 @@ export async function getGroups(
 async function loadGroups(
   storage: Storage,
   toolDomain: string,
-  aesKey: string,
-  groupsUrl?: string | null,
+  aesKey: CryptoKey,
+  groupsUrl?: string | string[] | null,
   accessToken?: string | null,
   platformUrl?: string | null,
   clientId?: string | null,
-  contextId?: string,
-  user?: string,
-): Promise<object | null> {
+  contextId?: string | null,
+  user?: string | null,
+): Promise<any | null> {
 
-  const contextToken: StoredContextToken = await storage.getContextToken(`${contextId}${user}`);
+  const contextToken: StoredContextToken | null = await storage.getContextToken(`${contextId}${user}`);
   const productFamilyCode = contextToken?.toolPlatform?.product_family_code;
 
   if (!accessToken && !groupsUrl && platformUrl && clientId) {
-    const platform: Platform = await storage.getPlatform(platformUrl, clientId);
+    const platform: Platform | null = await storage.getPlatform(platformUrl, clientId);
     if (!platform) return null;
 
-    groupsUrl = contextToken?.groups?.context_groups_url;
+    groupsUrl = contextToken?.groups?.context_groups_url || null;
     if (!groupsUrl) {
       console.error("No context_groups_url supplied. Let's check product codes");
       if (productFamilyCode === "canvas") {
@@ -112,7 +106,7 @@ async function loadGroups(
 
   console.debug(`Retrieving groups from ${groupsUrl}`);
 
-  return fetch(groupsUrl, {
+  return fetch(groupsUrl as string, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/vnd.ims.lti-gs.v1.contextgroupcontainer+json",
@@ -142,7 +136,7 @@ async function loadGroups(
 async function primeGroupsCache(
     storage: Storage,
     toolDomain: string,
-    aesKey: string,
+    aesKey: CryptoKey,
     platformUrl: string,
     clientId: string,
     contextId: string,
@@ -188,5 +182,5 @@ async function persistGroups(
   groups: Array<Group> = [],
 ): Promise<void> {
 
-  for (const g: Group of groups) await storage.setGroup(clientId, contextId, g);
+  for (const g of groups) await storage.setGroup(clientId, contextId, g as Group);
 }

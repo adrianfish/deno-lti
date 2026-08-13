@@ -94,12 +94,12 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
     // -----------------------------------------------------------------
     // 2. Subsequent request — must carry LTIK
     // -----------------------------------------------------------------
-    const ltik: string | null = c.req.query("ltik");
+    const ltik: string | undefined = c.req.query("ltik");
     if (!ltik) {
       return onInvalidToken(c);
     }
 
-    const payload: LtikPayload = await verifyLtik(ltik, secret);
+    const payload: LtikPayload | null = await verifyLtik(ltik, secret);
     if (!payload) return onInvalidToken(c);
     if (debug) console.debug(`Launch redirect LTIK PAYLOAD: ${JSON.stringify(payload)}`);
 
@@ -238,7 +238,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
         ltikPayload.role = contextToken.roles[0].substring(hashIndex + 1);
       }
 
-      const ltik = await signLtik(ltikPayload, secret);
+      const ltik: string = await signLtik(ltikPayload, secret);
 
       /*
       // Set signed session cookie
