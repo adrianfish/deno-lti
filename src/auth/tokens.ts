@@ -5,7 +5,7 @@
 import { createRemoteJWKSet, importJWK, importSPKI, jwtVerify, SignJWT } from "jose";
 import { DEEP_LINKING, RESOURCE_LINK } from "../messages.ts";
 
-import type { JWTPayload } from "jose";
+import type { JWTPayload, JWTVerifyGetKey } from "jose";
 import type { Platform, StoredContextToken, StoredIdToken } from "../types.ts";
 import type { Storage } from "../storage/storage.ts";
 import type { LtikPayload } from "../types.ts";
@@ -26,7 +26,6 @@ export async function signLtik(
   payload: LtikPayload,
   secret: string,
 ): Promise<string> {
-  console.log(payload);
   return new SignJWT(payload as unknown as JWTPayload)
     .setProtectedHeader({ alg: "HS256" })
     .sign(ltikSecret(secret));
@@ -51,10 +50,11 @@ export async function verifyLtik(
 /**
  * Fetch the JWKS for a platform and return a jose KeyLike suitable for jwtVerify.
  */
-async function resolvePlatformKey(
+function resolvePlatformKey(
   platform: Platform,
   kid: string,
-): Promise<CryptoKey> {
+//): Promise<CryptoKey> {
+): JWTVerifyGetKey {
 
   if (platform.jwksUri) {
     return createRemoteJWKSet(new URL(platform.jwksUri));
@@ -90,9 +90,11 @@ export async function validateToken(
   const header = JSON.parse(atob(headerB64.replace(/-/g, "+").replace(/_/g, "/")));
   const kid: string = header.kid;
 
-  const verificationKey: CryptoKey = await resolvePlatformKey(platform, kid);
+  //const verificationKey: CryptoKey = await resolvePlatformKey(platform, kid);
+  const jwkSet: JWTVerifyGetKey = resolvePlatformKey(platform, kid);
 
-  const { payload } = await jwtVerify(idTokenJwt, verificationKey, {
+  //const { payload } = await jwtVerify(idTokenJwt, verificationKey, {
+  const { payload } = await jwtVerify(idTokenJwt, jwkSet, {
     algorithms: ["RS256"],
     audience: platform.clientId,
     issuer: platform.url,
