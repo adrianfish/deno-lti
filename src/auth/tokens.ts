@@ -53,7 +53,6 @@ export async function verifyLtik(
 function resolvePlatformKey(
   platform: Platform,
   kid: string,
-//): Promise<CryptoKey> {
 ): JWTVerifyGetKey {
 
   if (platform.jwksUri) {
@@ -90,10 +89,8 @@ export async function validateToken(
   const header = JSON.parse(atob(headerB64.replace(/-/g, "+").replace(/_/g, "/")));
   const kid: string = header.kid;
 
-  //const verificationKey: CryptoKey = await resolvePlatformKey(platform, kid);
   const jwkSet: JWTVerifyGetKey = resolvePlatformKey(platform, kid);
 
-  //const { payload } = await jwtVerify(idTokenJwt, verificationKey, {
   const { payload } = await jwtVerify(idTokenJwt, jwkSet, {
     algorithms: ["RS256"],
     audience: platform.clientId,
