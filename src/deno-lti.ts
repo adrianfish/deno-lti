@@ -68,15 +68,14 @@ export class DenoLTI {
     options: ToolOptions = {}
   ): Promise<this> {
 
+    this.#toolDomain = toolDomain;
     this.#secret = secret;
     this.#clientName = clientName;
     this.#description = description;
     this.#logoUri = logoUri;
+    this.#options = options;
     this.#aesKey = await deriveAesKey(secret);
     this.#storage = await DenoKVStorage.open();
-    this.#options = options;
-
-    this.#toolDomain = toolDomain;
 
     this.#buildRoutes();
     this.#ready = true;
@@ -184,6 +183,24 @@ export class DenoLTI {
     return null;
   }
 
+  async getLineItems(
+    platformUrl: string,
+    clientId: string,
+    contextId: string,
+    userId: string,
+  ): Promise<LineItem[]> {
+
+    return getLineItems(
+      this.#storage,
+      this.#toolDomain,
+      this.#aesKey,
+      platformUrl,
+      clientId,
+      contextId,
+      userId,
+    );
+  }
+
   /**
    * Creates and returns a form with the supplied content items encoded ready for a deep linking
    * request. The form auto submits.
@@ -242,6 +259,7 @@ export class DenoLTI {
    * Register a launch callback
    *
    * @param {LTIHandler} handler The handler to be called once launch has completed.
+   *
    * @returns {DenoLTI} Returns this DenoLTI instance to allow chaining.
    */
   onLaunch(handler: LTIHandler): this {

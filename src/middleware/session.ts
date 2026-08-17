@@ -20,7 +20,7 @@ import { randomHex } from "../auth/keys.ts";
 import { DEEP_LINKING, RESOURCE_LINK } from "../messages.ts";
 
 import type { Storage } from "../storage/storage.ts";
-import type { CookieOptions, ErrorHandler, LTIHandler, LtikPayload, Platform } from "../types.ts";
+import type { CookieOptions, ErrorHandler, LTIContext, LTIHandler, LtikPayload, Platform } from "../types.ts";
 import type { Context, MiddlewareHandler } from "hono";
 import type { ValidationResult } from "../auth/tokens.ts";
 
@@ -139,7 +139,7 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
     c.set("role", payload.role);
 
     // Route to the right callback
-    const ltiContext = {
+    const ltiContext: LTIContext = {
       token: { ...idToken, platformContext: contextToken },
       ltik,
     };
@@ -218,7 +218,6 @@ export function createSessionMiddleware(opts: SessionMiddlewareOptions): Middlew
         storage.saveIdToken(idTokenKey, idToken, IDTOKEN_TTL_MS),
         storage.saveContextToken(contextTokenKey, contextToken, CONTEXT_TTL_MS),
       ]);
-
 
       // Create a token like object to circumvent the restrictions on cross origin cookies in modern
       // browsers. This token holds the necessary data to continue with the launch request after
