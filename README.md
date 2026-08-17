@@ -1,6 +1,6 @@
 # deno-lti
 
-A zero-dependency [LTI 1.3](https://www.imsglobal.org/spec/lti/v1p3/) tool library for [Deno](https://deno.land/), built on [Hono](https://hono.dev/).
+A zero-dependency [LTI 1.3](https://www.imsglobal.org/spec/lti/v1p3/) tool library for [Deno](https://deno.com/), built on [Hono](https://hono.dev/).
 
 Implements the full LTI 1.3 + OIDC launch flow, Assignment & Grade Services (AGS), Deep Linking, and Names & Roles Provisioning. Uses Deno KV for storage.
 
@@ -34,7 +34,8 @@ app.get("/some-app-route", someAppRouteHandler);
 Deno.serve(app.fetch);
 ```
 
-The secret is used to sign session tokens (LTIKs) and encrypt stored RSA keys. It must remain consistent across restarts — changing it invalidates all active sessions and stored keys.
+The secret is used to sign session tokens (LTIKs) and encrypt stored RSA keys. It must remain
+consistent across restarts — changing it invalidates all active sessions and stored keys.
 
 ## Built-in routes
 
@@ -45,15 +46,18 @@ Once initialized, `lti.handler()` exposes these routes:
 | `GET, POST` | `/login` | OIDC login initiation (third-party login) |
 | `GET, POST` | `/register` | Dynamic platform registration |
 | `GET` | `/keys` | JWKS endpoint (your tool's public keys) |
-| `GET, POST` | `/` *(or `appRoute`)* | LTI launch and subsequent requests |
+| `GET, POST` | `/lti` *(or `appRoute`)* | LTI launch and subsequent requests |
 
-When registering your tool with an LMS, point the **Initiate Login URL** at `/login`, the **Redirect/Launch URL** at `/` (or your `appRoute`), and the **Public Key / JWKS URL** at `/keys`.
+When registering your tool with an LMS, point the **Initiate Login URL** at `/login`, the
+**Redirect/Launch URL** at `/lti` (or your `appRoute`), and the **Public Key / JWKS URL** at
+`/keys`.
 
 ## API reference
 
 ### `new DenoLTI()`
 
-Creates a new LTI tool instance. Call the fluent callback-registration methods before calling `setup()`.
+Creates a new LTI tool instance. Call the fluent callback-registration methods before calling
+`setup()`.
 
 ---
 
@@ -189,38 +193,38 @@ Subsequent requests (after the initial launch redirect) must carry the LTIK sess
 
 ---
 
-### `lti.grade` — Assignment & Grade Service
+### Assignment & Grade Service support
 
 Available after `setup()`. Implements [LTI AGS v2.0](https://www.imsglobal.org/spec/lti-ags/v2p0/).
 
-#### `lti.grade.getLineItems(token, options?): Promise<LineItem[]>`
+#### `lti.getLineItems(token, options?): Promise<LineItem[]>`
 
 Fetches all line items for the current context. Follows pagination automatically.
 
 ```ts
-const items = await lti.grade.getLineItems(token, { resourceId: "quiz-1" });
+const items = await lti.getLineItems(token, { resourceId: "quiz-1" });
 ```
 
 Options: `resourceId?: string`, `tag?: string`.
 
-#### `lti.grade.createLineItem(token, lineItem): Promise<LineItem>`
+#### `lti.createLineItem(token, lineItem): Promise<LineItem>`
 
 Creates a new gradebook column.
 
 ```ts
-const item = await lti.grade.createLineItem(token, {
+const item = await lti.createLineItem(token, {
   label: "Midterm Exam",
   scoreMaximum: 100,
   resourceId: "midterm",
 });
 ```
 
-#### `lti.grade.postScore(token, lineItemId, score): Promise<void>`
+#### `lti.postScore(token, lineItemId, score): Promise<void>`
 
 Posts a score for a user to a line item.
 
 ```ts
-await lti.grade.postScore(token, item.id!, {
+await lti.postScore(token, item.id!, {
   userId: token.user,
   scoreGiven: 85,
   scoreMaximum: 100,
@@ -229,7 +233,7 @@ await lti.grade.postScore(token, item.id!, {
 });
 ```
 
-#### `lti.grade.getResults(token, lineItemId): Promise<Result[]>`
+#### `lti.getResults(token, lineItemId): Promise<Result[]>`
 
 Retrieves all results for a line item. Follows pagination automatically.
 
@@ -303,12 +307,12 @@ automatically.
 
 ```ts
 import type {
-  // Grade service types
+  ContentItem,
   LineItem,
+  Member,
+  MemberPage,
   Result,
   Score,
-  // Launch context types
-  ContentItem,
   StoredContextToken,
   StoredIdToken,
 } from "jsr:@adrianfish/deno-lti";
