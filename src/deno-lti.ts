@@ -13,11 +13,12 @@ import { GRADING, GROUPS, ROSTER } from "./constants.ts";
 import { buildKeyId } from "./utils/platform-utils.ts";
 import { createDeepLinkingForm, createDeepLinkingMessage } from "./services/deep-linking.ts";
 import { deriveAesKey } from "./crypto.ts";
+import { verifyLtik } from "./auth/tokens.ts";
 
 import type { MiddlewareHandler } from "hono";
 import type { Storage } from "./storage/storage.ts";
 import type { MemberFilter } from "./services/nrps.ts";
-import type { ContentItem, ErrorHandler, Group, LTIContext, LTIHandler, LTIToken, MemberPage, Platform, ToolOptions } from "./types.ts";
+import type { ContentItem, ErrorHandler, Group, LtikPayload, LTIContext, LTIHandler, LTIToken, MemberPage, Platform, ToolOptions } from "./types.ts";
 
 export class DenoLTI {
 
@@ -90,10 +91,7 @@ export class DenoLTI {
    * Returns a page of members from the roster service. If the cache is hot, this will be very
    * quick but, if not, there may be a delay while the members are retrieved from the LTI Platform.
    *
-   * @param {string} platformUrl The url of the lti Platform this tool is talking to.
-   * @param {string} clientId The clientId provided by the Platform during the launch.
-   * @param {string} contextId The contextId provided by the Platform during the launch
-   * @param {string} userId The userId provided by the Platform during the launch
+   * @param {string} ltik A JWT with the basic platform details needed for api calls
    * @param {number} startNum The page number to retrieve
    * @param {number} lengthNum The number of members to retrieve
    * @param {object} [filter] The spec to be used while filtering the members
@@ -101,14 +99,17 @@ export class DenoLTI {
    * @returns {Promise<MemberPage | null>} A promise which fulfils with the MemberPage
    */
   async getPageOfMembers(
-    platformUrl: string,
-    clientId: string,
-    contextId: string,
-    userId: string,
+    ltik: string,
     startNum: number,
     lengthNum: number,
     filter?: MemberFilter,
   ): Promise<MemberPage | null> {
+
+    const { platformUrl, clientId, contextId, userId } = (await verifyLtik(ltik, this.#secret)) || {};
+
+    if (!platformUrl || !clientId || !contextId || !userId) {
+      return null;
+    }
 
     if (this.#options.services?.includes(ROSTER)) {
       return getPageOfMembers(this.#storage, this.#toolDomain, this.#aesKey, platformUrl, clientId, contextId, userId, startNum, lengthNum, filter);
@@ -120,15 +121,17 @@ export class DenoLTI {
   /**
    * Tests if the cache of members is currently being built.
    *
-   * @param {string} clientId The clientId provided by the Platform during the launch.
-   * @param {string} contextId The contextId provided by the Platform during the launch
+   * @param {string} ltik A JWT with the basic platform details needed for api calls
    *
    * @returns {Promise<boolean>} A promise which fulfils to either true or false.
    */
-  async isMembersCacheBuilding(
-    clientId: string,
-    contextId: string
-  ): Promise<boolean> {
+  async isMembersCacheBuilding(ltik: string): Promise<boolean> {
+
+    const { clientId, contextId } = (await verifyLtik(ltik, this.#secret)) || {};
+
+    if (!!clientId || !contextId) {
+      return null;
+    }
 
     if (this.#options.services?.includes(ROSTER)) {
       return await isMembersCacheBuilding(this.#storage, clientId, contextId);
@@ -142,19 +145,17 @@ export class DenoLTI {
    * quick but, if not, there may be a delay while the groups are retrieved from the LTI Platform.
    * If GROUPS was not specified during setup, a null promise will be returned.
    *
-   * @param {string} platformUrl The url of the lti Platform this tool is talking to.
-   * @param {string} clientId The clientId provided by the Platform during the launch.
-   * @param {string} contextId The contextId provided by the Platform during the launch
-   * @param {string} userId The userId provided by the Platform during the launch
+   * @param {string} ltik A JWT with the basic platform details needed for api calls
    *
-   * @returns {Promise<Array<Group> | null>} A promise which fulfils with the MemberPage
+   * @returns {Promise<Array<Group> | null>} A promise which fulfils with the MemberPage or null
    */
-  async getGroups(
-    platformUrl: string,
-    clientId: string,
-    contextId: string,
-    userId: string,
-  ): Promise<Array<Group> | null> {
+  async getGroups(ltik: string,): Promise<Array<Group> | null> {
+
+    const { platformUrl, clientId, contextId, userId } = (await verifyLtik(ltik, this.#secret)) || {};
+
+    if (!platformUrl || !clientId || !contextId || !userId) {
+      return null;
+    }
 
     if (this.#options.services?.includes(GROUPS)) {
       return getGroups(this.#storage, this.#toolDomain, this.#aesKey, platformUrl, clientId, contextId, userId);
@@ -166,15 +167,17 @@ export class DenoLTI {
   /**
    * Get the total members, broken down by LTI role.
    *
-   * @param {string} clientId The clientId provided by the Platform during the launch.
-   * @param {string} contextId The contextId provided by the Platform during the launch
+   * @param {string} ltik A JWT with the basic platform details needed for api calls
    *
    * @returns {Promise<object | null>} A promise which fulfils with the totals object or null
    */
-  async getRoleTotals(
-    clientId: string,
-    contextId: string,
-  ): Promise<Record<string, number> | null> {
+  async getRoleTotals(ltik: string): Promise<Record<string, number> | null> {
+
+    const { clientId, contextId } = (await verifyLtik(ltik, this.#secret)) || {};
+
+    if (!clientId || !contextId) {
+      return null;
+    }
 
     if (this.#options.services?.includes(ROSTER)) {
       return getCachedRoleTotals(this.#storage, clientId, contextId);
@@ -183,12 +186,20 @@ export class DenoLTI {
     return null;
   }
 
-  async getLineItems(
-    platformUrl: string,
-    clientId: string,
-    contextId: string,
-    userId: string,
-  ): Promise<LineItem[]> {
+  /**
+   * Get the line items.
+   *
+   * @param {string} ltik A JWT with the basic platform details needed for api calls
+   *
+   * @returns {Promise<LineItem[] | null>} A promise which fulfils with an array of LineItem or null
+   */
+  async getLineItems(ltik: string): Promise<LineItem[]> {
+
+    const { platformUrl, clientId, contextId, userId } = (await verifyLtik(ltik, this.#secret)) || {};
+
+    if (!platformUrl || !clientId || !contextId || !userId) {
+      return null;
+    }
 
     return getLineItems(
       this.#storage,
@@ -338,7 +349,13 @@ export class DenoLTI {
 
   }
 
-  async getAccessToken(platformUrl: string, clientId: string, scopes: Array<string>): Promise<string | null> {
+  async getAccessToken(ltik: string, scopes: Array<string>): Promise<string | null> {
+
+    const { platformUrl, clientId } = (await verifyLtik(ltik, this.#secret)) || {};
+
+    if (!platformUrl || !clientId) {
+      return null;
+    }
 
     const platform: Platform | null = await this.#storage.getPlatform(platformUrl, clientId);
     if (!platform) {

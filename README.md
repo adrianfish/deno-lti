@@ -197,12 +197,12 @@ Subsequent requests (after the initial launch redirect) must carry the LTIK sess
 
 Available after `setup()`. Implements [LTI AGS v2.0](https://www.imsglobal.org/spec/lti-ags/v2p0/).
 
-#### `lti.getLineItems(token, options?): Promise<LineItem[]>`
+#### `lti.getLineItems(ltik): Promise<LineItem[]>`
 
 Fetches all line items for the current context. Follows pagination automatically.
 
 ```ts
-const items = await lti.getLineItems(token, { resourceId: "quiz-1" });
+const items = await lti.getLineItems(ltik);
 ```
 
 Options: `resourceId?: string`, `tag?: string`.
@@ -219,13 +219,13 @@ const item = await lti.createLineItem(token, {
 });
 ```
 
-#### `lti.postScore(token, lineItemId, score): Promise<void>`
+#### `lti.postScore(ltik, lineItemId, score): Promise<void>`
 
 Posts a score for a user to a line item.
 
 ```ts
-await lti.postScore(token, item.id!, {
-  userId: token.user,
+await lti.postScore(ltik, item.id!, {
+  userId: ltik.userId,
   scoreGiven: 85,
   scoreMaximum: 100,
   activityProgress: "Completed",
