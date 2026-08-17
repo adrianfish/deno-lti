@@ -25,4 +25,4 @@ export { DenoLTI } from "./src/deno-lti.ts";
 export * from   "./src/constants.ts";
 
 export type { Result, Score } from "./src/services/grade.ts";
-export type { ContentItem, Group, LineItem, StoredContextToken, StoredIdToken } from "./src/types.ts";
+export type { ContentItem, Group, LineItem, LTIContext, Member, MemberPage, StoredContextToken, StoredIdToken } from "./src/types.ts";
