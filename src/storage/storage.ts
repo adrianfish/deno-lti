@@ -1,4 +1,4 @@
-import type { Group, LineItem, Member, MemberPage, OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
+import type { Group, LineItem, LineItemOptions, Member, MemberPage, OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
 /** Cached per-group membership counts, plus the overall member total. */
 export interface GroupTotals {
@@ -101,9 +101,9 @@ export interface Storage {
 
   getGroups(clientId: string, contextId: string): Promise<Array<Group>>;
 
-  hasAnyLineItems(clientId: string, contextId: string): Promise<boolean>;
+  hasAnyLineItems(clientId: string, contextId: string, options?: LineItemOptions): Promise<boolean>;
 
   setLineItem(clientId: string, contextId: string, item: LineItem): Promise<boolean>;
 
-  getLineItems(clientId: string, contextId: string): Promise<Array<LineItem>>;
+  getLineItems(clientId: string, contextId: string, options?: LineItemOptions): Promise<Array<LineItem>>;
 }

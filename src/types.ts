@@ -174,6 +174,11 @@ export interface LineItem {
   [key: string]: unknown;
 }
 
+export interface LineItemOptions {
+  resourceId?: string;
+  tag?: string;
+}
+
 export interface Member {
   group_enrollments: Array<Record<string, string>>;
   user_id: string;
@@ -204,4 +209,22 @@ export interface Group {
   id: string;
   name: string;
   tag: string;
+}
+
+export interface Result {
+  id: string;
+  userId: string;
+  resultScore?: number;
+  resultMaximum?: number;
+  comment?: string;
+}
+
+export interface Score {
+  userId: string;
+  scoreGiven?: number;
+  scoreMaximum?: number;
+  comment?: string;
+  timestamp?: string;
+  activityProgress: "Initialized" | "Started" | "InProgress" | "Submitted" | "Completed";
+  gradingProgress: "FullyGraded" | "Pending" | "PendingManual" | "Failed" | "NotReady";
 }

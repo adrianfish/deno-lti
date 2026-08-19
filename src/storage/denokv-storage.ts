@@ -1,5 +1,5 @@
 import type { GroupTotals, Storage } from "./storage.ts";
-import type { Group, LineItem, Member, MemberPage, OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
+import type { Group, LineItem, LineItemOptions, Member, MemberPage, OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
 const LIST_CHUNK = 200;
 
@@ -77,8 +77,11 @@ export class DenoKVStorage implements Storage {
     return [ "lti", "groups-caching", clientId, contextId ];
   }
 
-  #lineItemsPrefix(clientId: string, contextId: string): Deno.KvKey {
-    return [ "lti", "line-items", clientId, contextId ];
+  #lineItemsPrefix(clientId: string, contextId: string, options?: LineItemOptions): Array<string | number> {
+
+    const prefix = [ "lti", "line-items", clientId, contextId ];
+    options?.resourceId && prefix.push(options.resourceId);
+    return prefix;
   }
 
   #platformKey(url: string, clientId: string): Deno.KvKey {
@@ -412,10 +415,10 @@ export class DenoKVStorage implements Storage {
     return groups;
   }
 
-  async hasAnyLineItems(clientId: string, contextId: string): Promise<boolean> {
+  async hasAnyLineItems(clientId: string, contextId: string, options?: LineItemOptions): Promise<boolean> {
 
     // Try and get one user
-    const iter = this.#kv.list({ prefix: this.#lineItemsPrefix(clientId, contextId) }, { limit: 1 });
+    const iter = this.#kv.list({ prefix: this.#lineItemsPrefix(clientId, contextId, options) }, { limit: 1 });
     for await (const _ of iter) return true;
     return false;
   }
@@ -429,14 +432,17 @@ export class DenoKVStorage implements Storage {
     if (index !== -1) id = id.substring(index + 1);
 
     const expireIn: number = 15 * 60 * 1000;
-    return (await this.#kv.set([ ...this.#lineItemsPrefix(clientId, contextId), id ], item, { expireIn })).ok;
+    const key = this.#lineItemsPrefix(clientId, contextId);
+    item?.resourceId && key.push(item.resourceId);
+    key.push(id);
+    return (await this.#kv.set(key, item, { expireIn })).ok;
   }
 
-  async getLineItems(clientId: string, contextId: string): Promise<Array<LineItem>> {
+  async getLineItems(clientId: string, contextId: string, options?: LineItemOptions): Promise<Array<LineItem>> {
 
     const items: Array<LineItem> = [];
     let cursor: string | undefined;
-    const prefix = this.#lineItemsPrefix(clientId, contextId);
+    const prefix = this.#lineItemsPrefix(clientId, contextId, options);
 
     while (true) {
       const iter = this.#kv.list<LineItem>({ prefix }, { cursor, limit: LIST_CHUNK });

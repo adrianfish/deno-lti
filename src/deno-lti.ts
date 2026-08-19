@@ -8,6 +8,7 @@ import { handleRegisterPlatform } from "./routes/register-platform.ts";
 import { DenoKVStorage } from "./storage/denokv-storage.ts";
 import { getCachedRoleTotals, getPageOfMembers, isMembersCacheBuilding } from "./services/nrps.ts";
 import { getGroups } from "./services/groups.ts";
+import { createLineItem, getLineItems, getResults, postScore } from "./services/grade.ts";
 import { requestAccessToken } from "./services/oauth.ts";
 import { GRADING, GROUPS, ROSTER } from "./constants.ts";
 import { buildKeyId } from "./utils/platform-utils.ts";
@@ -18,7 +19,7 @@ import { verifyLtik } from "./auth/tokens.ts";
 import type { MiddlewareHandler } from "hono";
 import type { Storage } from "./storage/storage.ts";
 import type { MemberFilter } from "./services/nrps.ts";
-import type { ContentItem, ErrorHandler, Group, LtikPayload, LTIContext, LTIHandler, LTIToken, MemberPage, Platform, ToolOptions } from "./types.ts";
+import type { ContentItem, ErrorHandler, Group, LineItem, LineItemOptions, LtikPayload, LTIContext, LTIHandler, LTIToken, MemberPage, Platform, Result, Score, ToolOptions } from "./types.ts";
 
 export class DenoLTI {
 
@@ -123,13 +124,13 @@ export class DenoLTI {
    *
    * @param {string} ltik A JWT with the basic platform details needed for api calls
    *
-   * @returns {Promise<boolean>} A promise which fulfils to either true or false.
+   * @returns {Promise<boolean|null>} A promise which fulfils to either true or false.
    */
-  async isMembersCacheBuilding(ltik: string): Promise<boolean> {
+  async isMembersCacheBuilding(ltik: string): Promise<boolean | null> {
 
     const { clientId, contextId } = (await verifyLtik(ltik, this.#secret)) || {};
 
-    if (!!clientId || !contextId) {
+    if (!clientId || !contextId) {
       return null;
     }
 
@@ -169,7 +170,7 @@ export class DenoLTI {
    *
    * @param {string} ltik A JWT with the basic platform details needed for api calls
    *
-   * @returns {Promise<object | null>} A promise which fulfils with the totals object or null
+   * @returns {Promise<Object | null>} A promise which fulfils with the totals object or null
    */
   async getRoleTotals(ltik: string): Promise<Record<string, number> | null> {
 
@@ -190,10 +191,11 @@ export class DenoLTI {
    * Get the line items.
    *
    * @param {string} ltik A JWT with the basic platform details needed for api calls
+   * @param {Object} [options] An optional LineItemOptions object
    *
-   * @returns {Promise<LineItem[] | null>} A promise which fulfils with an array of LineItem or null
+   * @returns {Promise<Array> | null>} A promise which fulfils with an array of LineItem or null
    */
-  async getLineItems(ltik: string): Promise<LineItem[]> {
+  async getLineItems(ltik: string, options?: LineItemOptions): Promise<LineItem[] | null> {
 
     const { platformUrl, clientId, contextId, userId } = (await verifyLtik(ltik, this.#secret)) || {};
 
@@ -209,6 +211,68 @@ export class DenoLTI {
       clientId,
       contextId,
       userId,
+      options,
+    );
+  }
+
+
+  async createLineItem(ltik: string, lineItem: LineItem): Promise<LineItem | null> {
+
+    const { platformUrl, clientId, contextId, userId } = (await verifyLtik(ltik, this.#secret)) || {};
+
+    if (!platformUrl || !clientId || !contextId || !userId) {
+      return null;
+    }
+
+    return createLineItem(
+      this.#storage,
+      this.#toolDomain,
+      this.#aesKey,
+      platformUrl,
+      clientId,
+      contextId,
+      userId,
+      lineItem);
+  }
+
+  async postScore(ltik: string, lineItemId: string, score: Score): Promise<boolean> {
+
+    const { platformUrl, clientId } = (await verifyLtik(ltik, this.#secret)) || {};
+
+    if (!platformUrl || !clientId) {
+      console.warn("platformUrl and clientId must be supplied");
+      return false;
+    }
+
+    return postScore(
+      this.#storage,
+      this.#toolDomain,
+      this.#aesKey,
+      platformUrl,
+      clientId,
+      lineItemId,
+      score
+    );
+  }
+
+  async getResults(ltik: string, lineItemId: string): Promise<Result[] | null> {
+
+    const { platformUrl, clientId, contextId, userId } = (await verifyLtik(ltik, this.#secret)) || {};
+
+    if (!platformUrl || !clientId || !contextId || !userId) {
+      console.warn("platformUrl, clientId, contextId and userId must be supplied");
+      return null;
+    }
+
+    return getResults(
+      this.#storage,
+      this.#toolDomain, 
+      this.#aesKey,
+      platformUrl,
+      clientId,
+      contextId,
+      userId,
+      lineItemId
     );
   }
 
@@ -344,9 +408,7 @@ export class DenoLTI {
   }
 
   getProduct(ltiContext: LTIContext): string | undefined {
-
     return ltiContext?.token?.platformContext?.toolPlatform?.product_family_code;
-
   }
 
   async getAccessToken(ltik: string, scopes: Array<string>): Promise<string | null> {

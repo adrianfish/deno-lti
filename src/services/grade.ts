@@ -5,25 +5,7 @@ import { requestAccessToken } from "./oauth.ts";
 import { buildKeyId } from "../utils/platform-utils.ts";
 
 import type { Storage } from "../storage/storage.ts";
-import type { LineItem, LTIToken, Platform, StoredContextToken } from "../types.ts";
-
-export interface Score {
-  userId: string;
-  scoreGiven?: number;
-  scoreMaximum?: number;
-  comment?: string;
-  timestamp?: string;
-  activityProgress: "Initialized" | "Started" | "InProgress" | "Submitted" | "Completed";
-  gradingProgress: "FullyGraded" | "Pending" | "PendingManual" | "Failed" | "NotReady";
-}
-
-export interface Result {
-  id: string;
-  userId: string;
-  resultScore?: number;
-  resultMaximum?: number;
-  comment?: string;
-}
+import type { LineItem, LineItemOptions, LTIToken, Platform, Result, Score, StoredContextToken } from "../types.ts";
 
 const AGS_SCOPE_LINEITEM = "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem";
 const AGS_SCOPE_LINEITEM_RO = "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly";
@@ -38,14 +20,15 @@ export async function ensureLineItemsCached(
   clientId: string,
   contextId: string,
   userId: string,
+  options?: LineItemOptions,
 ): Promise<void> {
 
-  if (await storage.hasAnyLineItems(clientId, contextId)) {
+  if (await storage.hasAnyLineItems(clientId, contextId, options)) {
     console.debug(`Line items already cached for clientId ${clientId}, contextId ${contextId}`);
     return;
   }
 
-  const items: LineItem[] | null = await loadLineItems(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId);
+  const items: LineItem[] | null = await loadLineItems(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId, options);
   if (items) {
     items.forEach(item => storage.setLineItem(clientId, contextId, item));
   } else {
@@ -61,9 +44,10 @@ export async function getLineItems(
   clientId: string,
   contextId: string,
   userId: string,
+  options?: LineItemOptions,
 ): Promise<LineItem[]> {
 
-  await ensureLineItemsCached(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId);
+  await ensureLineItemsCached(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId, options);
   return storage.getLineItems(clientId, contextId);
 }
 
@@ -76,26 +60,27 @@ async function loadLineItems(
   clientId: string,
   contextId: string,
   userId: string,
-  options?: { resourceId?: string; tag?: string },
+  options?: LineItemOptions,
 ): Promise<LineItem[] | null> {
-
-  const contextToken: StoredContextToken | null = await storage.getContextToken(`${contextId}${userId}`);
 
   if (!platformUrl || !clientId) {
     console.error("platformUrl and clientId must be supplied");
     return null;
   }
 
-  const platform: Platform | null = await storage.getPlatform(platformUrl, clientId);
-  if (!platform) return null;
+  const contextToken: StoredContextToken | null = await storage.getContextToken(`${contextId}${userId}`);
+  if (!contextToken) return null;
 
   let url: URL;
   try {
-    url = new URL(contextToken?.grades?.lineitems as string || "");
+    url = new URL(contextToken.grades?.lineitems as string || "");
   } catch (error) {
     console.error(error);
     return null;
   }
+
+  const platform: Platform | null = await storage.getPlatform(platformUrl, clientId);
+  if (!platform) return null;
 
   const requestedScopes = [ AGS_SCOPE_LINEITEM_RO, AGS_SCOPE_LINEITEM ];
 
@@ -121,22 +106,30 @@ async function loadLineItems(
   return await fetchAllPages(url.toString(), accessToken, "application/vnd.ims.lis.v2.lineitemcontainer+json");
 }
 
-/** Create a new line item. */
 export async function createLineItem(
   storage: Storage,
   toolDomain: string,
   aesKey: CryptoKey,
   platformUrl: string,
   clientId: string,
-  token: LTIToken,
+  contextId: string,
+  userId: string,
   lineItem: LineItem,
 ): Promise<LineItem | null> {
 
-  const endpoint = token.platformContext.endpoint;
-  if (!endpoint?.lineitems) throw new Error("No lineitems endpoint in context");
-
   if (!platformUrl || !clientId) {
     console.error("platformUrl and clientId must be supplied");
+    return null;
+  }
+
+  const contextToken: StoredContextToken | null = await storage.getContextToken(`${contextId}${userId}`);
+  if (!contextToken) return null;
+
+  let url: URL;
+  try {
+    url = new URL(contextToken.grades?.lineitems as string || "");
+  } catch (error) {
+    console.error(error);
     return null;
   }
 
@@ -159,7 +152,7 @@ export async function createLineItem(
     return null;
   }
 
-  const res = await fetch(endpoint.lineitems as string, {
+  const res = await fetch(url.toString(), {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${accessToken}`,
@@ -172,7 +165,6 @@ export async function createLineItem(
   return res.json();
 }
 
-/** Post a score to a line item. */
 export async function postScore(
   storage: Storage,
   toolDomain: string,
@@ -181,15 +173,15 @@ export async function postScore(
   clientId: string,
   lineItemId: string,
   score: Score,
-): Promise<void> {
+): Promise<boolean> {
 
   if (!platformUrl || !clientId) {
     console.error("platformUrl and clientId must be supplied");
-    return;
+    return false;
   }
 
   const platform: Platform | null = await storage.getPlatform(platformUrl, clientId);
-  if (!platform) return;
+  if (!platform) return false;
 
   const accessToken = await requestAccessToken(
     toolDomain,
@@ -204,7 +196,7 @@ export async function postScore(
 
   if (!accessToken) {
     console.warn("Failed to get access token");
-    return;
+    return false;
   }
 
   const scoreUrl = lineItemId.replace(/\/?$/, "/scores");
@@ -220,7 +212,7 @@ export async function postScore(
     }),
   });
 
-  if (!res.ok) throw new Error(`Failed to post score: ${res.status} ${await res.text()}`);
+  return res.ok;
 }
 
 /** Get results for a line item, following pagination. */
@@ -234,6 +226,8 @@ export async function getResults(
   userId: string,
   lineItemId: string
 ): Promise<Result[] | null> {
+
+  // TODO: Add lazy caching. As results are requested for a line item, cache them at that point.
 
   const contextToken: StoredContextToken | null = await storage.getContextToken(`${contextId}${userId}`);
 
