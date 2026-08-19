@@ -23,14 +23,14 @@ export async function ensureLineItemsCached(
   options?: LineItemOptions,
 ): Promise<void> {
 
-  if (await storage.hasAnyLineItems(clientId, contextId, options)) {
+  if (await storage.hasAnyLineItems(platformUrl, clientId, contextId, options)) {
     console.debug(`Line items already cached for clientId ${clientId}, contextId ${contextId}`);
     return;
   }
 
   const items: LineItem[] | null = await loadLineItems(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId, options);
   if (items) {
-    items.forEach(item => storage.setLineItem(clientId, contextId, item));
+    items.forEach(item => storage.setLineItem(platformUrl, clientId, contextId, item));
   } else {
     console.warn("No items found");
   }
@@ -48,7 +48,7 @@ export async function getLineItems(
 ): Promise<LineItem[]> {
 
   await ensureLineItemsCached(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId, options);
-  return storage.getLineItems(clientId, contextId);
+  return storage.getLineItems(platformUrl, clientId, contextId);
 }
 
 /** Get all line items for the current context, following pagination. */
@@ -222,14 +222,12 @@ export async function getResults(
   aesKey: CryptoKey,
   platformUrl: string,
   clientId: string,
-  contextId: string,
-  userId: string,
-  lineItemId: string
+  lineItemId: string,
 ): Promise<Result[] | null> {
 
   // TODO: Add lazy caching. As results are requested for a line item, cache them at that point.
 
-  const contextToken: StoredContextToken | null = await storage.getContextToken(`${contextId}${userId}`);
+  //storage.getResults(platformUrl, clientId, lineItemId);
 
   if (!platformUrl || !clientId) {
     console.error("platformUrl and clientId must be supplied");

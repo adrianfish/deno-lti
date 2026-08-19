@@ -128,14 +128,14 @@ export class DenoLTI {
    */
   async isMembersCacheBuilding(ltik: string): Promise<boolean | null> {
 
-    const { clientId, contextId } = (await verifyLtik(ltik, this.#secret)) || {};
+    const { platformUrl, clientId, contextId } = (await verifyLtik(ltik, this.#secret)) || {};
 
-    if (!clientId || !contextId) {
+    if (!platformUrl || !clientId || !contextId) {
       return null;
     }
 
     if (this.#options.services?.includes(ROSTER)) {
-      return await isMembersCacheBuilding(this.#storage, clientId, contextId);
+      return await isMembersCacheBuilding(this.#storage, platformUrl, clientId, contextId);
     }
 
     return false;
@@ -174,14 +174,14 @@ export class DenoLTI {
    */
   async getRoleTotals(ltik: string): Promise<Record<string, number> | null> {
 
-    const { clientId, contextId } = (await verifyLtik(ltik, this.#secret)) || {};
+    const { platformUrl, clientId, contextId } = (await verifyLtik(ltik, this.#secret)) || {};
 
-    if (!clientId || !contextId) {
+    if (!platformUrl || !clientId || !contextId) {
       return null;
     }
 
     if (this.#options.services?.includes(ROSTER)) {
-      return getCachedRoleTotals(this.#storage, clientId, contextId);
+      return getCachedRoleTotals(this.#storage, platformUrl, clientId, contextId);
     }
 
     return null;
@@ -270,8 +270,6 @@ export class DenoLTI {
       this.#aesKey,
       platformUrl,
       clientId,
-      contextId,
-      userId,
       lineItemId
     );
   }

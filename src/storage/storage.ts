@@ -62,17 +62,18 @@ export interface Storage {
     requestedScopes: string,
   ): Promise<StoredAccessToken | null>;
 
-  isMembersCaching(clientId: string, contextId: string): Promise<boolean>;
+  isMembersCaching(platformUrl: string, clientId: string, contextId: string): Promise<boolean>;
 
-  setMembersCaching(clientId: string, contextId: string): Promise<boolean>;
+  setMembersCaching(platformUrl: string, clientId: string, contextId: string): Promise<boolean>;
 
-  unsetMembersCaching(clientId: string, contextId: string): Promise<void>;
+  unsetMembersCaching(platformUrl: string, clientId: string, contextId: string): Promise<void>;
 
-  setMember(clientId: string, contextId: string, user: any): Promise<boolean>;
+  setMember(platformUrl: string, clientId: string, contextId: string, user: any): Promise<boolean>;
 
-  hasAnyMembers(clientId: string, contextId: string): Promise<boolean>;
+  hasAnyMembers(platformUrl: string, clientId: string, contextId: string): Promise<boolean>;
 
   getPageOfMembers(
+    platformUrl: string,
     clientId: string,
     contextId: string,
     start: number,
@@ -81,29 +82,29 @@ export interface Storage {
     filteredCount?: number,
   ): Promise<MemberPage>;
 
-  getAllMembers(clientId: string, contextId: string): Promise<Array<object>>;
+  getAllMembers(platformUrl: string, clientId: string, contextId: string): Promise<Array<object>>;
 
-  getCachedRoleTotals(clientId: string, contextId: string): Promise<Record<string, number> | null>;
+  getCachedRoleTotals(platformUrl: string, clientId: string, contextId: string): Promise<Record<string, number> | null>;
 
-  getCachedGroupTotals(clientId: string, contextId: string): Promise<GroupTotals | null>;
+  getCachedGroupTotals(platformUrl: string, clientId: string, contextId: string): Promise<GroupTotals | null>;
 
-  cacheTotals(clientId: string, contextId: string): Promise<Record<string, number>>;
+  cacheTotals(platformUrl: string, clientId: string, contextId: string): Promise<Record<string, number>>;
 
-  hasAnyGroups(clientId: string, contextId: string): Promise<boolean>;
+  hasAnyGroups(platformUrl: string, clientId: string, contextId: string): Promise<boolean>;
 
-  isGroupsCaching(clientId: string, contextId: string): Promise<boolean>;
+  isGroupsCaching(platformUrl: string, clientId: string, contextId: string): Promise<boolean>;
 
-  setGroupsCaching(clientId: string, contextId: string): Promise<boolean>;
+  setGroupsCaching(platformUrl: string, clientId: string, contextId: string): Promise<boolean>;
 
-  unsetGroupsCaching(clientId: string, contextId: string): Promise<void>;
+  unsetGroupsCaching(platformUrl: string, clientId: string, contextId: string): Promise<void>;
 
-  setGroup(clientId: string, contextId: string, group: object): Promise<boolean>;
+  setGroup(platformUrl: string, clientId: string, contextId: string, group: object): Promise<boolean>;
 
-  getGroups(clientId: string, contextId: string): Promise<Array<Group>>;
+  getGroups(platformUrl: string, clientId: string, contextId: string): Promise<Array<Group>>;
 
-  hasAnyLineItems(clientId: string, contextId: string, options?: LineItemOptions): Promise<boolean>;
+  hasAnyLineItems(platformUrl: string, clientId: string, contextId: string, options?: LineItemOptions): Promise<boolean>;
 
-  setLineItem(clientId: string, contextId: string, item: LineItem): Promise<boolean>;
+  setLineItem(platformUrl: string, clientId: string, contextId: string, item: LineItem): Promise<boolean>;
 
-  getLineItems(clientId: string, contextId: string, options?: LineItemOptions): Promise<Array<LineItem>>;
+  getLineItems(platformUrl: string, clientId: string, contextId: string, options?: LineItemOptions): Promise<Array<LineItem>>;
 }

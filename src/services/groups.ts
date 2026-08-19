@@ -19,7 +19,7 @@ export async function ensureGroupsCached(
     userId: string,
 ): Promise<void> {
 
-  if (await storage.hasAnyGroups(clientId, contextId)) {
+  if (await storage.hasAnyGroups(platformUrl, clientId, contextId)) {
     console.debug(`Groups already cached for clientId ${clientId}, contextId ${contextId}`);
     return;
   }
@@ -39,7 +39,7 @@ export async function getGroups(
 
   await ensureGroupsCached(storage, toolDomain, aesKey, platformUrl, clientId, contextId, userId);
 
-  return await storage.getGroups(clientId, contextId);
+  return await storage.getGroups(platformUrl, clientId, contextId);
 }
 
 /**
@@ -143,20 +143,20 @@ async function primeGroupsCache(
     userId: string,
 ): Promise<void> {
 
-  if (await storage.isGroupsCaching(clientId, contextId)) {
+  if (await storage.isGroupsCaching(platformUrl, clientId, contextId)) {
     // Another request is already filling the cache; wait until at least the first page is in.
     return;
   }
 
-  storage.setGroupsCaching(clientId, contextId);
+  storage.setGroupsCaching(platformUrl, clientId, contextId);
 
   console.debug(`Getting first page of members for clientId ${clientId} and contextId ${contextId} ...`);
   const first = await loadGroups(storage, toolDomain, aesKey, null, null, platformUrl, clientId, contextId, userId);
   if (!first) return;
-  await persistGroups(storage, clientId, contextId, first.groups);
+  await persistGroups(storage, platformUrl, clientId, contextId, first.groups);
 
   if (!first.next) {
-    storage.unsetGroupsCaching(clientId, contextId);
+    storage.unsetGroupsCaching(platformUrl, clientId, contextId);
     return;
   }
 
@@ -166,21 +166,22 @@ async function primeGroupsCache(
   while (pageUrl) {
     const result = await loadGroups(storage, toolDomain, aesKey, pageUrl, accessToken, null, null, null, null);
     if (!result) break;
-    await persistGroups(storage, clientId, contextId, result.groups);
+    await persistGroups(storage, platformUrl, clientId, contextId, result.groups);
     console.debug(`Drained groups page ${page} for clientId ${clientId} and contextId ${contextId}`);
     pageUrl = result.next;
     accessToken = result.accessToken;
     page++;
   }
-  storage.unsetGroupsCaching(clientId, contextId);
+  storage.unsetGroupsCaching(platformUrl, clientId, contextId);
 }
 
 async function persistGroups(
   storage: Storage,
+  platformUrl: string,
   clientId: string,
   contextId: string,
   groups: Array<Group> = [],
 ): Promise<void> {
 
-  for (const g of groups) await storage.setGroup(clientId, contextId, g as Group);
+  for (const g of groups) await storage.setGroup(platformUrl, clientId, contextId, g as Group);
 }

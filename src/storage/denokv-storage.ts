@@ -53,33 +53,33 @@ export class DenoKVStorage implements Storage {
     return [ "lti", "accesstoken", platformUrl, clientId, requestedScopes ];
   }
 
-  #membersPrefix(clientId: string, contextId: string): Deno.KvKey {
-    return [ "lti", "members", clientId, contextId ];
+  #membersPrefix(platformUrl: string, clientId: string, contextId: string): Deno.KvKey {
+    return [ "lti", "members", platformUrl, clientId, contextId ];
   }
 
-  #groupsPrefix(clientId: string, contextId: string): Deno.KvKey {
-    return [ "lti", "groups", clientId, contextId ];
+  #groupsPrefix(platformUrl: string, clientId: string, contextId: string): Deno.KvKey {
+    return [ "lti", "groups", platformUrl, clientId, contextId ];
   }
 
-  #roleTotalsKey(clientId: string, contextId: string): Deno.KvKey {
-    return [ "lti", "role-totals", clientId, contextId ];
+  #roleTotalsKey(platformUrl: string, clientId: string, contextId: string): Deno.KvKey {
+    return [ "lti", "role-totals", platformUrl, clientId, contextId ];
   }
 
-  #groupTotalsKey(clientId: string, contextId: string): Deno.KvKey {
-    return [ "lti", "group-totals", clientId, contextId ];
+  #groupTotalsKey(platformUrl: string, clientId: string, contextId: string): Deno.KvKey {
+    return [ "lti", "group-totals", platformUrl, clientId, contextId ];
   }
 
-  #membersCachingKey(clientId: string, contextId: string): Deno.KvKey {
-    return [ "lti", "members-caching", clientId, contextId ];
+  #membersCachingKey(platformUrl: string, clientId: string, contextId: string): Deno.KvKey {
+    return [ "lti", "members-caching", platformUrl, clientId, contextId ];
   }
 
-  #groupsCachingKey(clientId: string, contextId: string): Deno.KvKey {
-    return [ "lti", "groups-caching", clientId, contextId ];
+  #groupsCachingKey(platformUrl: string, clientId: string, contextId: string): Deno.KvKey {
+    return [ "lti", "groups-caching", platformUrl, clientId, contextId ];
   }
 
-  #lineItemsPrefix(clientId: string, contextId: string, options?: LineItemOptions): Array<string | number> {
+  #lineItemsPrefix(platformUrl: string, clientId: string, contextId: string, options?: LineItemOptions): Array<string | number> {
 
-    const prefix = [ "lti", "line-items", clientId, contextId ];
+    const prefix = [ "lti", "line-items", platformUrl, clientId, contextId ];
     options?.resourceId && prefix.push(options.resourceId);
     return prefix;
   }
@@ -222,19 +222,19 @@ export class DenoKVStorage implements Storage {
     return entry.value;
   }
 
-  async isMembersCaching(clientId: string, contextId: string): Promise<boolean> {
-    return !!(await this.#kv.get(this.#membersCachingKey(clientId, contextId))).value;
+  async isMembersCaching(platformUrl: string, clientId: string, contextId: string): Promise<boolean> {
+    return !!(await this.#kv.get(this.#membersCachingKey(platformUrl, clientId, contextId))).value;
   }
 
-  async setMembersCaching(clientId: string, contextId: string): Promise<boolean> {
-    return (await this.#kv.set(this.#membersCachingKey(clientId, contextId), true)).ok;
+  async setMembersCaching(platformUrl: string, clientId: string, contextId: string): Promise<boolean> {
+    return (await this.#kv.set(this.#membersCachingKey(platformUrl, clientId, contextId), true)).ok;
   }
 
-  async unsetMembersCaching(clientId: string, contextId: string): Promise<void> {
-    return await this.#kv.delete(this.#membersCachingKey(clientId, contextId));
+  async unsetMembersCaching(platformUrl: string, clientId: string, contextId: string): Promise<void> {
+    return await this.#kv.delete(this.#membersCachingKey(platformUrl, clientId, contextId));
   }
 
-  async setMember(clientId: string, contextId: string, user: any): Promise<boolean> {
+  async setMember(platformUrl: string, clientId: string, contextId: string, user: any): Promise<boolean> {
 
     let id = user.user_id;
     const index = id.lastIndexOf("/");
@@ -243,18 +243,19 @@ export class DenoKVStorage implements Storage {
     delete user.lti11_legacy_user_id;
     delete user.lis_person_sourcedid;
 
-    return (await this.#kv.set([ ...this.#membersPrefix(clientId, contextId), id ], user, { expireIn: this.#membersAndGroupsTTL })).ok;
+    return (await this.#kv.set([ ...this.#membersPrefix(platformUrl, clientId, contextId), id ], user, { expireIn: this.#membersAndGroupsTTL })).ok;
   }
 
-  async hasAnyMembers(clientId: string, contextId: string): Promise<boolean> {
+  async hasAnyMembers(platformUrl: string, clientId: string, contextId: string): Promise<boolean> {
 
     // Try and get one user
-    const iter = this.#kv.list({ prefix: this.#membersPrefix(clientId, contextId) }, { limit: 1 });
+    const iter = this.#kv.list({ prefix: this.#membersPrefix(platformUrl, clientId, contextId) }, { limit: 1 });
     for await (const _ of iter) return true;
     return false;
   }
 
   async getPageOfMembers(
+    platformUrl: string,
     clientId: string,
     contextId: string,
     start: number,
@@ -263,14 +264,14 @@ export class DenoKVStorage implements Storage {
     filteredCount?: number,
   ): Promise<MemberPage> {
 
-    const prefix = this.#membersPrefix(clientId, contextId);
+    const prefix = this.#membersPrefix(platformUrl, clientId, contextId);
 
     // When the caller already knows the filtered count (no filter, or a
     // role/group filter whose count we cached) we only need to read the
     // start..start+length window and can stop the scan as soon as it is
     // full. We still need the unfiltered total for DataTables, so that also
     // has to be known up front — otherwise fall back to a full scan.
-    const cachedTotal = (await this.getCachedGroupTotals(clientId, contextId))?.total;
+    const cachedTotal = (await this.getCachedGroupTotals(platformUrl, clientId, contextId))?.total;
     const windowed = filteredCount !== undefined && cachedTotal !== undefined && length > 0;
 
     const members: Array<Member> = [];
@@ -306,12 +307,12 @@ export class DenoKVStorage implements Storage {
     };
   }
 
-  async getAllMembers(clientId: string, contextId: string): Promise<Array<Member>> {
+  async getAllMembers(platformUrl: string, clientId: string, contextId: string): Promise<Array<Member>> {
 
     const all: Array<Member> = [];
     let cursor: string | undefined;
     while (true) {
-      const iter = this.#kv.list<Member>({ prefix: this.#membersPrefix(clientId, contextId) }, { cursor, limit: LIST_CHUNK });
+      const iter = this.#kv.list<Member>({ prefix: this.#membersPrefix(platformUrl, clientId, contextId) }, { cursor, limit: LIST_CHUNK });
       let seen = 0;
       for await (const entry of iter) {
         seen++;
@@ -323,25 +324,25 @@ export class DenoKVStorage implements Storage {
     return all;
   }
 
-  async getCachedRoleTotals(clientId: string, contextId: string): Promise<Record<string, number> | null> {
-    return (await this.#kv.get<Record<string, number>>(this.#roleTotalsKey(clientId, contextId))).value;
+  async getCachedRoleTotals(platformUrl: string, clientId: string, contextId: string): Promise<Record<string, number> | null> {
+    return (await this.#kv.get<Record<string, number>>(this.#roleTotalsKey(platformUrl, clientId, contextId))).value;
   }
 
-  async getCachedGroupTotals(clientId: string, contextId: string): Promise<GroupTotals | null> {
-    return (await this.#kv.get<GroupTotals>(this.#groupTotalsKey(clientId, contextId))).value;
+  async getCachedGroupTotals(platformUrl: string, clientId: string, contextId: string): Promise<GroupTotals | null> {
+    return (await this.#kv.get<GroupTotals>(this.#groupTotalsKey(platformUrl, clientId, contextId))).value;
   }
 
-  async cacheTotals(clientId: string, contextId: string): Promise<Record<string, number>> {
+  async cacheTotals(platformUrl: string, clientId: string, contextId: string): Promise<Record<string, number>> {
 
-    const totals = await this.getCachedRoleTotals(clientId, contextId);
-    const groupTotalsCached = await this.getCachedGroupTotals(clientId, contextId);
+    const totals = await this.getCachedRoleTotals(platformUrl, clientId, contextId);
+    const groupTotalsCached = await this.getCachedGroupTotals(platformUrl, clientId, contextId);
 
     if (totals && groupTotalsCached) {
-      console.debug(`Using cached totals for clientId ${clientId} and contextId ${contextId}.`);
+      console.debug(`Using cached totals for platformUrl ${platformUrl}, clientId ${clientId} and contextId ${contextId}.`);
       return totals;
     }
 
-    console.debug(`Totals for clientId ${clientId} and contextId ${contextId} not cached. Building ...`);
+    console.debug(`Totals for platformUrl ${platformUrl}, clientId ${clientId} and contextId ${contextId} not cached. Building ...`);
 
     // A single pass over the members yields the per-role counts, the
     // per-group counts and the overall member total, so DataTables can page
@@ -349,7 +350,7 @@ export class DenoKVStorage implements Storage {
     const roleTotals: Record<string, number> = {};
     const groupTotals: GroupTotals = { total: 0, byGroup: {} };
 
-    const all = await this.getAllMembers(clientId, contextId);
+    const all = await this.getAllMembers(platformUrl, clientId, contextId);
     for (const m of all) {
       groupTotals.total++;
 
@@ -365,44 +366,44 @@ export class DenoKVStorage implements Storage {
       }
     }
 
-    await this.#kv.set(this.#roleTotalsKey(clientId, contextId), roleTotals, { expireIn: this.#membersAndGroupsTTL } );
-    await this.#kv.set(this.#groupTotalsKey(clientId, contextId), groupTotals, { expireIn: this.#membersAndGroupsTTL });
+    await this.#kv.set(this.#roleTotalsKey(platformUrl, clientId, contextId), roleTotals, { expireIn: this.#membersAndGroupsTTL } );
+    await this.#kv.set(this.#groupTotalsKey(platformUrl, clientId, contextId), groupTotals, { expireIn: this.#membersAndGroupsTTL });
 
     return roleTotals;
   }
 
-  async hasAnyGroups(clientId: string, contextId: string): Promise<boolean> {
+  async hasAnyGroups(platformUrl: string, clientId: string, contextId: string): Promise<boolean> {
 
     // Try and get one user
-    const iter = this.#kv.list<Group>({ prefix: this.#groupsPrefix(clientId, contextId) }, { limit: 1 });
+    const iter = this.#kv.list<Group>({ prefix: this.#groupsPrefix(platformUrl, clientId, contextId) }, { limit: 1 });
     for await (const _ of iter) return true;
     return false;
   }
 
-  async isGroupsCaching(clientId: string, contextId: string): Promise<boolean> {
-    return !!(await this.#kv.get(this.#groupsCachingKey(clientId, contextId))).value;
+  async isGroupsCaching(platformUrl: string, clientId: string, contextId: string): Promise<boolean> {
+    return !!(await this.#kv.get(this.#groupsCachingKey(platformUrl, clientId, contextId))).value;
   }
 
-  async setGroupsCaching(clientId: string, contextId: string): Promise<boolean> {
-    return (await this.#kv.set(this.#groupsCachingKey(clientId, contextId), true)).ok;
+  async setGroupsCaching(platformUrl: string, clientId: string, contextId: string): Promise<boolean> {
+    return (await this.#kv.set(this.#groupsCachingKey(platformUrl, clientId, contextId), true)).ok;
   }
 
-  async unsetGroupsCaching(clientId: string, contextId: string): Promise<void> {
-    return await this.#kv.delete(this.#groupsCachingKey(clientId, contextId));
+  async unsetGroupsCaching(platformUrl: string, clientId: string, contextId: string): Promise<void> {
+    return await this.#kv.delete(this.#groupsCachingKey(platformUrl, clientId, contextId));
   }
 
-  async setGroup(clientId: string, contextId: string, group: Group): Promise<boolean> {
+  async setGroup(platformUrl: string, clientId: string, contextId: string, group: Group): Promise<boolean> {
 
     const expireIn: number = 15 * 60 * 1000;
-    return (await this.#kv.set([ ...this.#groupsPrefix(clientId, contextId), group.id ], group, { expireIn })).ok;
+    return (await this.#kv.set([ ...this.#groupsPrefix(platformUrl, clientId, contextId), group.id ], group, { expireIn })).ok;
   }
 
-  async getGroups(clientId: string, contextId: string): Promise<Array<Group>> {
+  async getGroups(platformUrl: string, clientId: string, contextId: string): Promise<Array<Group>> {
 
     const groups: Array<Group> = [];
     let cursor: string | undefined;
 
-    const prefix = this.#groupsPrefix(clientId, contextId);
+    const prefix = this.#groupsPrefix(platformUrl, clientId, contextId);
     while (true) {
       const iter = this.#kv.list<Group>({ prefix }, { cursor, limit: LIST_CHUNK });
       for await (const entry of iter) {
@@ -415,15 +416,15 @@ export class DenoKVStorage implements Storage {
     return groups;
   }
 
-  async hasAnyLineItems(clientId: string, contextId: string, options?: LineItemOptions): Promise<boolean> {
+  async hasAnyLineItems(platformUrl: string, clientId: string, contextId: string, options?: LineItemOptions): Promise<boolean> {
 
     // Try and get one user
-    const iter = this.#kv.list({ prefix: this.#lineItemsPrefix(clientId, contextId, options) }, { limit: 1 });
+    const iter = this.#kv.list({ prefix: this.#lineItemsPrefix(platformUrl, clientId, contextId, options) }, { limit: 1 });
     for await (const _ of iter) return true;
     return false;
   }
 
-  async setLineItem(clientId: string, contextId: string, item: LineItem): Promise<boolean> {
+  async setLineItem(platformUrl: string, clientId: string, contextId: string, item: LineItem): Promise<boolean> {
 
     let id = item.id;
     if (!id) return false;
@@ -432,17 +433,17 @@ export class DenoKVStorage implements Storage {
     if (index !== -1) id = id.substring(index + 1);
 
     const expireIn: number = 15 * 60 * 1000;
-    const key = this.#lineItemsPrefix(clientId, contextId);
+    const key = this.#lineItemsPrefix(platformUrl, clientId, contextId);
     item?.resourceId && key.push(item.resourceId);
     key.push(id);
     return (await this.#kv.set(key, item, { expireIn })).ok;
   }
 
-  async getLineItems(clientId: string, contextId: string, options?: LineItemOptions): Promise<Array<LineItem>> {
+  async getLineItems(platformUrl: string, clientId: string, contextId: string, options?: LineItemOptions): Promise<Array<LineItem>> {
 
     const items: Array<LineItem> = [];
     let cursor: string | undefined;
-    const prefix = this.#lineItemsPrefix(clientId, contextId, options);
+    const prefix = this.#lineItemsPrefix(platformUrl, clientId, contextId, options);
 
     while (true) {
       const iter = this.#kv.list<LineItem>({ prefix }, { cursor, limit: LIST_CHUNK });

@@ -43,18 +43,19 @@ export async function getPageOfMembers(
 
   const { role, groupId, search } = filterSpec;
   const filter = buildFilter(role, groupId, search);
-  const count = await filteredCount(storage, clientId, contextId, role, groupId, search);
+  const count = await filteredCount(storage, platformUrl, clientId, contextId, role, groupId, search);
 
-  return storage.getPageOfMembers(clientId, contextId, start, length, filter, count);
+  return storage.getPageOfMembers(platformUrl, clientId, contextId, start, length, filter, count);
 }
 
 export async function isMembersCacheBuilding(
   storage: Storage,
+  platformUrl: string,
   clientId: string,
   contextId: string
 ): Promise<boolean> {
 
-  return await storage.isMembersCaching(clientId, contextId);
+  return await storage.isMembersCaching(platformUrl, clientId, contextId);
 }
 
 export async function ensureMembersCached(
@@ -67,7 +68,7 @@ export async function ensureMembersCached(
   userId: string,
 ): Promise<void> {
 
-  if (await storage.hasAnyMembers(clientId, contextId)) {
+  if (await storage.hasAnyMembers(platformUrl, clientId, contextId)) {
     console.debug(`Members already cached for clientId ${clientId}, contextId ${contextId}`);
     return;
   }
@@ -77,11 +78,12 @@ export async function ensureMembersCached(
 
 export async function getCachedRoleTotals(
   storage: Storage,
+  platformUrl: string,
   clientId: string,
   contextId: string,
 ): Promise<Record<string, number> | null> {
 
-  return await storage.getCachedRoleTotals(clientId, contextId);
+  return await storage.getCachedRoleTotals(platformUrl, clientId, contextId);
 }
 
 /**
@@ -218,12 +220,13 @@ async function loadMembers(
 
 async function persistMembers(
   storage: Storage,
+  platformUrl: string,
   clientId: string,
   contextId: string,
   members: Array<Member> = []
 ): Promise<void> {
 
-  for (const m of members) await storage.setMember(clientId, contextId, m);
+  for (const m of members) await storage.setMember(platformUrl, clientId, contextId, m);
 }
 
 async function primeMembersCache(
@@ -236,23 +239,23 @@ async function primeMembersCache(
   userId: string,
 ): Promise<void> {
 
-  if (await storage.isMembersCaching(clientId, contextId)) {
+  if (await storage.isMembersCaching(platformUrl, clientId, contextId)) {
     // Another request is already filling the cache; wait until at least the first page is in.
     console.debug(`The members for ${clientId} and ${contextId} are currently being cached.`);
     return;
   }
 
-  storage.setMembersCaching(clientId, contextId);
+  storage.setMembersCaching(platformUrl, clientId, contextId);
 
   console.debug(`Getting first page of members for clientId ${clientId} and contextId ${contextId} ...`);
   const first: MembersPage | null = await loadMembers(storage, toolDomain, aesKey, null, null, platformUrl, clientId, contextId, userId);
   if (!first) return;
-  await persistMembers(storage, clientId, contextId, first.members);
+  await persistMembers(storage, platformUrl, clientId, contextId, first.members);
 
   if (!first.next) {
     console.debug(`Only one page of members for clientId ${clientId} and contextId ${contextId}. Unsetting the caching flag, calculating the totals and returning ...`);
-    storage.unsetMembersCaching(clientId, contextId);
-    await storage.cacheTotals(clientId, contextId);
+    storage.unsetMembersCaching(platformUrl, clientId, contextId);
+    await storage.cacheTotals(platformUrl, clientId, contextId);
     return;
   }
 
@@ -263,14 +266,14 @@ async function primeMembersCache(
     while (pageUrl) {
       const result: MembersPage | null = await loadMembers(storage, toolDomain, aesKey, pageUrl, accessToken, null, null, null, null);
       if (!result) break;
-      await persistMembers(storage, clientId, contextId, result.members);
+      await persistMembers(storage, platformUrl, clientId, contextId, result.members);
       console.debug(`Drained members page ${page} for clientId ${clientId} and contextId ${contextId}`);
       pageUrl = result.next;
       accessToken = result.accessToken;
       page++;
     }
-    await storage.cacheTotals(clientId, contextId);
-  })().finally(() => storage.unsetMembersCaching(clientId, contextId));
+    await storage.cacheTotals(platformUrl, clientId, contextId);
+  })().finally(() => storage.unsetMembersCaching(platformUrl, clientId, contextId));
 }
 
 /**
@@ -282,6 +285,7 @@ async function primeMembersCache(
  */
 async function filteredCount(
   storage: Storage,
+  platformUrl: string,
   clientId: string,
   contextId: string,
   role?: string,
@@ -297,11 +301,11 @@ async function filteredCount(
   if (searchActive) return undefined;
   if (roleActive && groupActive) return undefined;
 
-  const groupTotals = await storage.getCachedGroupTotals(clientId, contextId);
+  const groupTotals = await storage.getCachedGroupTotals(platformUrl, clientId, contextId);
   if (!groupTotals) return undefined;
 
   if (roleActive) {
-    const roleTotals = await storage.getCachedRoleTotals(clientId, contextId);
+    const roleTotals = await storage.getCachedRoleTotals(platformUrl, clientId, contextId);
     return roleTotals?.[role] ?? 0;
   }
 
