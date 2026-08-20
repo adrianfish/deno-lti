@@ -1,5 +1,5 @@
 import type { GroupTotals, Storage } from "./storage.ts";
-import type { Group, LineItem, LineItemOptions, Member, MemberPage, OidcStateData, Platform, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
+import type { Group, LineItem, LineItemOptions, Member, MemberPage, OidcStateData, Platform, Result, StoredAccessToken, StoredContextToken, StoredIdToken } from "../types.ts";
 
 const LIST_CHUNK = 200;
 
@@ -82,6 +82,10 @@ export class DenoKVStorage implements Storage {
     const prefix = [ "lti", "line-items", platformUrl, clientId, contextId ];
     options?.resourceId && prefix.push(options.resourceId);
     return prefix;
+  }
+
+  #resultsPrefix(platformUrl: string, clientId: string, lineItemId: string): Deno.KvKey {
+    return [ "lti", "results", platformUrl, clientId, lineItemId ];
   }
 
   #platformKey(url: string, clientId: string): Deno.KvKey {
@@ -455,6 +459,42 @@ export class DenoKVStorage implements Storage {
     }
 
     return items;
+  }
+
+  async getResults(
+    platformUrl: string,
+    clientId: string,
+    lineItemId: string,
+  ): Promise<Array<Result> | null> {
+
+    const results: Array<Result> = [];
+    let cursor: string | undefined;
+    const prefix = this.#resultsPrefix(platformUrl, clientId, lineItemId);
+
+    while (true) {
+      const iter = this.#kv.list<Result>({ prefix }, { cursor, limit: LIST_CHUNK });
+      for await (const entry of iter) {
+        results.push(entry.value);
+      }
+      cursor = iter.cursor || undefined;
+      if (!cursor) break;
+    }
+
+    return results;
+  }
+
+  async setResult(
+    platformUrl: string,
+    clientId: string,
+    lineItemId: string,
+    result: Result,
+  ): Promise<boolean> {
+
+    let id = result.id;
+    const index = id.lastIndexOf("/");
+    if (index !== -1) id = id.substring(index + 1);
+
+    return (await this.#kv.set([ ...this.#resultsPrefix(platformUrl, clientId, lineItemId), id ], result, { expireIn: this.#membersAndGroupsTTL })).ok;
   }
 
   close(): void {

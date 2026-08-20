@@ -219,7 +219,7 @@ const item = await lti.createLineItem(token, {
 });
 ```
 
-#### `lti.postScore(ltik, lineItemId, score): Promise<void>`
+#### `lti.postScore(ltik, lineItemId, score): Promise<boolean>`
 
 Posts a score for a user to a line item.
 

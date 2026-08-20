@@ -11,7 +11,7 @@ import type { ContentItem, LTIToken, StoredContextToken, StoredIdToken } from ".
  * Create an auto-submitting HTML form that posts the Deep Linking response
  * back to the platform.
  *
- * @param { platformCode: string; contextId: string; userId: string; } data- The params.
+ * @param {platformCode: string; contextId: string; userId: string;} data- The params.
  * @param {ContentItem[]} items Content items to return to the platform
  * @param {Storage} storage Storage (to retrieve the private key)
  * @param {CryptoKey} aesKey AES key for decrypting stored private key

@@ -215,7 +215,18 @@ export async function postScore(
   return res.ok;
 }
 
-/** Get results for a line item, following pagination. */
+/**
+ * Get the results for the specified line item.
+ *
+ * @param {Object} storage The data storage api
+ * @param {string} toolDomain The client tool's domain
+ * @param {Object} aesKey The tools key
+ * @param {string} platformUrl The platform's url (iss)
+ * @param {string} clientId The client id as supplied by the platform during launch
+ * @param {string} lineItemId The id of the platform line item.
+ *
+ * @returns A promise containing an array of Result objects or null
+ */
 export async function getResults(
   storage: Storage,
   toolDomain: string, 
@@ -227,15 +238,22 @@ export async function getResults(
 
   // TODO: Add lazy caching. As results are requested for a line item, cache them at that point.
 
-  //storage.getResults(platformUrl, clientId, lineItemId);
-
   if (!platformUrl || !clientId) {
     console.error("platformUrl and clientId must be supplied");
     return  [];
   }
 
+  let results: Result[] | null= await storage.getResults(platformUrl, clientId, lineItemId);
+
+  if (results && results.length > 0) {
+    return results;
+  }
+
   const platform: Platform | null = await storage.getPlatform(platformUrl, clientId);
-  if (!platform) return null;
+  if (!platform) {
+    console.warn(`Failed to get platform for platformUrl ${platformUrl} and clientId ${clientId}`);
+    return null;
+  }
 
   const accessToken = await requestAccessToken(
     toolDomain,
@@ -254,7 +272,10 @@ export async function getResults(
   }
 
   const resultsUrl = lineItemId.replace(/\/?$/, "/results");
-  return fetchAllPages(resultsUrl, accessToken, "application/vnd.ims.lis.v2.resultcontainer+json");
+  results = (await fetchAllPages(resultsUrl, accessToken, "application/vnd.ims.lis.v2.resultcontainer+json")) as Result[];
+  for (const r of results as Result[]) await storage.setResult(platformUrl, clientId, lineItemId, r);
+
+  return results;
 }
 
 async function fetchAllPages(
@@ -285,9 +306,7 @@ async function fetchAllPages(
   return all;
 }
 
-function parseNextLink(
-  linkHeader: string | null
-): string | null {
+function parseNextLink(linkHeader: string | null): string | null {
 
   if (!linkHeader) return null;
   for (const part of linkHeader.split(",")) {
